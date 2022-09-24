@@ -1,0 +1,3 @@
+class Types:
+	Any = {}
+	Route = {}

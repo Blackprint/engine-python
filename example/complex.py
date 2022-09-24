@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Because Python did support dynamic import
 # our nodes in BPNode folders like this.. only used nodes that will be imported
-Blackprint.registerNamespace(Path(__file__).resolve().parent+'/BPNode')
+Blackprint.registerNamespace(Path(__file__).resolve().parent.as_posix() + '/BPNode')
 
 # == Import JSON after all nodes was registered ==
 # You can import the JSON to Blackprint Sketch if you want to view the nodes visually
