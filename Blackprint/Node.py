@@ -1,13 +1,17 @@
 from Blackprint.RoutePort import RoutePort
-from .Constructor import CustomEvent, Port, References, PortLink
-from . import Interface, Internal
+from .Constructor.CustomEvent import CustomEvent
+from .Constructor.Port import Port as PortClass
+from .Constructor.References import References
+from .Constructor.PortLink import PortLink
+from .Interface import Interface
+from .Internal import Internal
 
 class Node(CustomEvent):
-	_outputLink: Port = []
-	output: PortLink = []
+	_outputLink: PortClass = {}
+	output: PortLink = {}
 
-	_inputLink: Port = []
-	input: PortLink = []
+	_inputLink: PortClass = {}
+	input: PortLink = {}
 
 	iface: Interface = None
 	_contructed = False
@@ -37,7 +41,7 @@ class Node(CustomEvent):
 		return iface
 
 	def createPort(this, which, name, type):
-		if(which != 'input' & which != 'output'):
+		if(which != 'input' and which != 'output'):
 			raise Exception("Can only create port for 'input' and 'output'")
 
 		if(which == "input"):
@@ -62,7 +66,7 @@ class Node(CustomEvent):
 		del this[which][name]
 
 	def deletePort(this, which, name):
-		if(which != 'input' & which != 'output'):
+		if(which != 'input' and which != 'output'):
 			raise Exception("Can only delete port for 'input' and 'output'")
 
 		if(which == "input"):

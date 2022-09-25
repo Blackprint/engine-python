@@ -1,2 +1,2 @@
-from .Constructor import CustomEvent
+from .Constructor.CustomEvent import CustomEvent
 Event = CustomEvent()

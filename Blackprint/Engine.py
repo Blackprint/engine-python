@@ -1,7 +1,13 @@
-from . import Internal, Types as PortType, PortGhost, Interface, Utils, Nodes, Environment
-from .Interface import Temp
-from .Port import PortFeature as Port
-from .Constructor import CustomEvent
+from .Nodes.Enums import Enums
+from .Nodes.BPFunction import FnMain, BPFunction
+from .Nodes.BPVariable import VarScope, BPVariable
+from .Types import Types as PortType
+from .Environment import Environment
+from .Utils import Utils
+from .Internal import Internal
+from .Interface import Temp, Interface
+from .Port.PortFeature import Port
+from .Constructor.CustomEvent import CustomEvent
 from typing import Dict, List
 import json as JSON
 
@@ -16,8 +22,7 @@ class Engine(CustomEvent):
 	functions = {}
 	ref: Dict[str, Interface] = {}
 
-	# @var Nodes/FnMain 
-	_funcMain = None
+	_funcMain: FnMain = None
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
@@ -82,7 +87,7 @@ class Engine(CustomEvent):
 		if(isinstance(json, str)):
 			json = JSON.loads(json)
 
-		appendMode = options.has_key('appendMode') & options['appendMode'] == False
+		appendMode = options.has_key('appendMode') and options['appendMode'] == False
 		if(not appendMode): this.clearNodes()
 
 		# Do we need this?
@@ -156,14 +161,14 @@ class Engine(CustomEvent):
 						linkPortA = iface.output[portName]
 
 						if(linkPortA == None):
-							if(iface._enum == Nodes.Enums.BPFnInput):
+							if(iface._enum == Enums.BPFnInput):
 								target = this._getTargetPortType(iface.node.instance, 'input', ports)
 								linkPortA = iface.addPort(target, portName)
 
 								if(linkPortA == None):
 									raise Exception("Can't create output port ([portName]) for function ([iface._funcMain.node._funcInstance.id])")
 
-							elif(iface._enum == Nodes.Enums.BPVarGet):
+							elif(iface._enum == Enums.BPVarGet):
 								target = this._getTargetPortType(this, 'input', ports)
 								iface.useType(target)
 								linkPortA = iface.output[portName]
@@ -178,13 +183,13 @@ class Engine(CustomEvent):
 							# output can only meet input port
 							linkPortB = targetNode.input[target['name']]
 							if(linkPortB == None):
-								if(targetNode._enum == Nodes.Enums.BPFnOutput):
+								if(targetNode._enum == Enums.BPFnOutput):
 									linkPortB = targetNode.addPort(linkPortA, target['name'])
 
 									if(linkPortB == None):
 										raise Exception("Can't create output port ([target['name']]) for function ([targetNode._funcMain.node._funcInstance.id])")
 
-								elif(targetNode._enum == Nodes.Enums.BPVarSet):
+								elif(targetNode._enum == Enums.BPVarSet):
 									targetNode.useType(linkPortA)
 									linkPortB = targetNode.input[target['name']]
 
@@ -322,7 +327,7 @@ class Engine(CustomEvent):
 		# deepProperty
 
 		# BPVariable = ./nodes/Var.js
-		temp = Nodes.BPVariable(id, options)
+		temp = BPVariable(id, options)
 		this.variables[id] = temp
 		this.emit('variable.new', temp)
 
@@ -334,13 +339,13 @@ class Engine(CustomEvent):
 			del this.functions[id]
 
 		# BPFunction = ./nodes/Fn.js
-		temp = Nodes.BPFunction(id, options, this)
+		temp = BPFunction(id, options, this)
 		this.functions[id] = temp
 
 		if(options.has_key('vars')):
 			vars = options['vars']
 			for val in vars:
-				temp.createVariable(val, {"scope": Nodes.VarScope.shared})
+				temp.createVariable(val, {"scope": VarScope.shared})
 
 		if(options.has_key('privateVars')):
 			privateVars = options['privateVars']

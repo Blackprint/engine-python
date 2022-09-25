@@ -1,5 +1,5 @@
-from . import Types
-from .Port import PortType
+from .Types import Types
+from .Port.PortFeature import Port
 
 class Utils:
 	NoOperation = lambda: None
@@ -34,20 +34,20 @@ class Utils:
 		def_ = None
 		feature = val['feature']
 	
-		if(feature == PortType.Trigger):
+		if(feature == Port.Trigger):
 			def_ = val['func']
 			type = Types.Function
 
-		elif(feature == PortType.ArrayOf):
+		elif(feature == Port.ArrayOf):
 			type = val['type']
 
 			if(type == Types.Any):
 				def_ = None
 			else: def_ = []
 
-		elif(feature == PortType.Union):
+		elif(feature == Port.Union):
 			type = val['type']
-		elif(feature == PortType.Default):
+		elif(feature == Port.Default):
 			type = val['type']
 			def_ = val['value']
 

@@ -1,8 +1,11 @@
-from .. import Types, Environment, Node, Interface
-from . import Enums
-import Blackprint
+from ..Environment import Environment
+from ..Node import Node
+from ..Interface import Interface
+from ..Event import Event
+from .Enums import Enums
+from ..Internal import registerNode, registerInterface
 
-@Blackprint.registerNode('BP/Env/Get')
+@registerNode('BP/Env/Get')
 class BPEnvGet(Node):
 	output = {"Val": str}
 	def __init__(this, instance):
@@ -16,7 +19,7 @@ class BPEnvGet(Node):
 
 		iface._enum = Enums.BPEnvGet
 
-@Blackprint.registerNode('BP/Env/Set')
+@registerNode('BP/Env/Set')
 class BPEnvSet(Node):
 	input = {"Val": str}
 
@@ -43,7 +46,7 @@ class BPEnvGetSet(Interface):
 		if(not Environment.map.has_key(data['name'])):
 			Environment.set(data['name'], '')
 
-@Blackprint.registerInterface('BPIC/BP/Env/Get')
+@registerInterface('BPIC/BP/Env/Get')
 class IEnvGet(BPEnvGetSet):
 	def imported(this, data):
 		BPEnvGetSet.imported(this, data)
@@ -53,14 +56,14 @@ class IEnvGet(BPEnvGetSet):
 
 		this._listener = _listener
 
-		Blackprint.Event.on('environment.changed environment.added', _listener)
+		Event.on('environment.changed environment.added', _listener)
 		this.ref.Output["Val"](Environment.map[this.data['name']])
 
 	def destroy(this):
 		if(this._listener == None): return
-		Blackprint.Event.off('environment.changed environment.added', this._listener)
+		Event.off('environment.changed environment.added', this._listener)
 
 
-@Blackprint.registerInterface('BPIC/BP/Env/Set')
+@registerInterface('BPIC/BP/Env/Set')
 class IEnvSet(BPEnvGetSet):
 	def _nothing(): pass

@@ -1,6 +1,13 @@
-from .Constructor import References, CustomEvent, PortLink, Port
-from . import Node, RoutePort
-from .Port import PortFeature
+from .Constructor.References import References
+from .Constructor.CustomEvent import CustomEvent
+from .Constructor.PortLink import PortLink
+from .Constructor.Port import Port as PortClass
+from .RoutePort import RoutePort
+from .Port.PortFeature import Port
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from .Node import Node
 
 class Temp:
 	list = ['input', 'output']
@@ -15,7 +22,7 @@ class Interface(CustomEvent):
 	_enum = None
 	isGhost = False
 
-	node: Node
+	node: 'Node'
 	namespace: str
 	_requesting = False
 
@@ -49,14 +56,14 @@ class Interface(CustomEvent):
 			raise Exception("'node.property', 'iface.property', and 'static \$property' is reserved field for Blackprint")
 
 	def _newPort(this, portName, type, def_, which, haveFeature):
-		return Port(portName, type, def_, which, this, haveFeature)
+		return PortClass(portName, type, def_, which, this, haveFeature)
 
 	def _initPortSwitches(this, portSwitches):
 		for key, value in portSwitches.items():
 			ref = this.output[key]
 
 			if((value | 1) == 1):
-				PortFeature.StructOf_split(ref)
+				Port.StructOf_split(ref)
 
 			if((value | 2) == 2):
 				ref.allowResync = True

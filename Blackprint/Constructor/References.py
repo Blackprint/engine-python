@@ -1,5 +1,5 @@
-from .. import Port
-from . import PortLink
+from .Port import Port
+from .PortLink import PortLink
 
 class References:
 	IInput: dict[str, Port]

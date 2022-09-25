@@ -1,7 +1,9 @@
-from . import Utils, Interface, Node
-from .Constructor import Port
+from .Interface import Interface
+from .Node import Node
+from .Utils import Utils
+from .Constructor.Port import PortClass
 
-class PortGhost(Port):
+class PortGhost(PortClass):
 	fakeIface = None
 	def destroy(this):
 		this.disconnectAll(False)

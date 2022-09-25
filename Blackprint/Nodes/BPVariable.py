@@ -1,9 +1,12 @@
 from ..Node import Node
 from ..Interface import Interface
-from ..Nodes import Enums
-from ..Constructor import CustomEvent
-from .. import Utils
-import Blackprint
+from ..Nodes.Enums import Enums
+from ..Constructor.CustomEvent import CustomEvent
+from ..Constructor.Port import Port as PortClass
+from ..Utils import Utils
+from ..Internal import registerNode, registerInterface
+from ..Types import Types
+from ..Port.PortFeature import Port
 import re
 
 # For internal library use only
@@ -12,7 +15,7 @@ class VarScope:
 	private = 1
 	shared = 2
 
-@Blackprint.registerNode('BP/Var/Set')
+@registerNode('BP/Var/Set')
 class VarSet(Node):
 	input = {}
 	def __init__(this, instance):
@@ -34,7 +37,7 @@ class VarSet(Node):
 		this.iface._bpVarRef.value(this.input['Val']())
 
 
-@Blackprint.registerNode('BP/Var/Get')
+@registerNode('BP/Var/Get')
 class VarGet(Node):
 	output = {}
 	def __init__(this, instance):
@@ -131,7 +134,7 @@ class BPVarGetSet(Interface):
 		raise Exception("It should only call child method and not the parent")
 
 	
-	def useType(this, port: Blackprint.Constructor.Port):
+	def useType(this, port: PortClass):
 		temp = this._bpVarRef
 		if(temp.type != BPVarTemp.typeNotSet):
 			if(port == None): temp.type = BPVarTemp.typeNotSet
@@ -161,7 +164,7 @@ class BPVarGetSet(Interface):
 		i = Utils.findFromList(listener, this)
 		if(i != False): listener.pop(i)
 
-@Blackprint.registerInterface('BPIC/BP/Var/Get')
+@registerInterface('BPIC/BP/Var/Get')
 class IVarGet(BPVarGetSet):
 	def changeVar(this, name, scopeId):
 		if(this.data['name'] != ''):
@@ -189,7 +192,7 @@ class IVarGet(BPVarGetSet):
 		ref = this.node.output
 		node.createPort('output', 'Val', temp.type)
 
-		if(temp.type == Blackprint.Types.Function):
+		if(temp.type == Types.Function):
 			this._eventListen = 'call'
 			def callback(): ref['Val']()
 			this._onChanged = callback
@@ -207,7 +210,7 @@ class IVarGet(BPVarGetSet):
 
 		BPVarGetSet.destroy(this)
 
-@Blackprint.registerInterface('BPIC/BP/Var/Set')
+@registerInterface('BPIC/BP/Var/Set')
 class IVarSet(BPVarGetSet):
 	def changeVar(this, name, scopeId):
 		scope = BPVarGetSet.changeVar(this, name, scopeId)
@@ -227,11 +230,11 @@ class IVarSet(BPVarGetSet):
 		if(input.has_key('Val')):
 			node.deletePort('input', 'Val')
 
-		if(temp.type == Blackprint.Types.Function):
+		if(temp.type == Types.Function):
 			def call():
 				temp.emit('call')
 
-			node.createPort('input', 'Val', Blackprint.Port.Trigger(call))
+			node.createPort('input', 'Val', Port.Trigger(call))
 
 		else: node.createPort('input', 'Val', temp.type)
 

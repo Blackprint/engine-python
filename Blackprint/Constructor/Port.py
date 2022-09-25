@@ -1,8 +1,8 @@
-from Blackprint import Types, PortType, Port as PortFeature, CustomEvent, Cable, Port
-from .. import Nodes
-
-class Args:
-	NoArgs = {}
+from ..Constructor.CustomEvent import CustomEvent
+from ..Constructor.Cable import Cable
+from ..Port.PortFeature import Port
+from ..Types import Types
+from ..Nodes.Enums import Enums
 
 class Port(CustomEvent):
 	name: str
@@ -13,16 +13,17 @@ class Port(CustomEvent):
 	default = None
 	value = None
 	sync = False
-	allowResync = False # Retrigger connected node's .update when the output value is similar
-	_ghost = False
-	_name = None
 	feature = None
 	onConnect = False
+	splitted = False
+	struct = None
+	allowResync = False # Retrigger connected node's .update when the output value is similar
+
+	_ghost = False
+	_name = None
 	_callAll = None
 	_cache = None
 	_func = None
-	splitted = False
-	struct = None
 
 	def __init__(this, portName, type, def_, which, iface, feature):
 		this.name = portName
@@ -35,31 +36,31 @@ class Port(CustomEvent):
 			return
 
 		# this.value
-		if(feature == PortType.Trigger):
+		if(feature == Port.Trigger):
 			def callb():
 				def_(this)
 				this.iface.node.routes.routeOut()
 
 			this.default = callb
 
-		elif(feature == PortType.StructOf):
+		elif(feature == Port.StructOf):
 			this.struct = def_
 		else: this.default = def_
 
 		this.feature = feature
 
 	def _getPortFeature(this):
-		if(this.feature == PortType.ArrayOf):
-			return PortFeature.ArrayOf(this.type)
+		if(this.feature == Port.ArrayOf):
+			return Port.ArrayOf(this.type)
 
-		elif(this.feature == PortType.Default):
-			return PortFeature.Default(this.type, this.default)
+		elif(this.feature == Port.Default):
+			return Port.Default(this.type, this.default)
 
-		elif(this.feature == PortType.Trigger):
-			return PortFeature.Trigger(this._func)
+		elif(this.feature == Port.Trigger):
+			return Port.Trigger(this._func)
 
-		elif(this.feature == PortType.Union):
-			return PortFeature.Union(this.type)
+		elif(this.feature == Port.Union):
+			return Port.Union(this.type)
 
 		raise Exception("Port feature not recognized")
 
@@ -81,7 +82,7 @@ class Port(CustomEvent):
 			else:
 				this._callAll = createCallableRoutePort(this)
 
-		# if(this.feature == PortType.Trigger):
+		# if(this.feature == Port.Trigger):
 		# 	return this.default
 
 		# class PortLink already handle the linker
@@ -111,7 +112,7 @@ class Port(CustomEvent):
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
 				node.update(cable)
 
-				if(inpIface._enum != Nodes.Enums.BPFnMain):
+				if(inpIface._enum != Enums.BPFnMain):
 					node.routes.routeOut()
 
 				else:
@@ -181,8 +182,8 @@ class Port(CustomEvent):
 			return False
 
 		if(cable.owner.source == 'output'):
-			if((this.feature == PortType.ArrayOf and not PortFeature.ArrayOf_validate(this.type, cable.owner.type))
-			   or (this.feature == PortType.Union and not PortFeature.Union_validate(this.type, cable.owner.type))):
+			if((this.feature == Port.ArrayOf and not Port.ArrayOf_validate(this.type, cable.owner.type))
+			   or (this.feature == Port.Union and not Port.Union_validate(this.type, cable.owner.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
@@ -194,8 +195,8 @@ class Port(CustomEvent):
 				return False
 
 		elif(this.source == 'output'):
-			if((cable.owner.feature == PortType.ArrayOf and not PortFeature.ArrayOf_validate(cable.owner.type, this.type))
-			   or (cable.owner.feature == PortType.Union and not PortFeature.Union_validate(cable.owner.type, this.type))):
+			if((cable.owner.feature == Port.ArrayOf and not Port.ArrayOf_validate(cable.owner.type, this.type))
+			   or (cable.owner.feature == Port.Union and not Port.Union_validate(cable.owner.type, this.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
@@ -270,7 +271,7 @@ class Port(CustomEvent):
 			out = cable.target
 
 		# Remove old cable if the port not support array
-		if(inp.feature != PortType.ArrayOf and inp.type != Types.Function):
+		if(inp.feature != Port.ArrayOf and inp.type != Types.Function):
 			cables = inp.cables # Cables in input port
 
 			if(len(cables) != 0):

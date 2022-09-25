@@ -1,6 +1,9 @@
-from . import Interface
-from .Constructor import Cable
-from .Nodes import Enums
+from .Constructor.Cable import Cable
+from .Nodes.Enums import Enums
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from .Interface import Interface
 
 class RoutePort:
 	inp = [] # Allow incoming route from multiple path
@@ -15,7 +18,7 @@ class RoutePort:
 		this.iface = iface
 
 	# Connect other route port (this .out to other .inp port)
-	def routeTo(this, iface: Interface=None):
+	def routeTo(this, iface: 'Interface' = None):
 		if(this.out != None):
 			this.out.disconnect()
 

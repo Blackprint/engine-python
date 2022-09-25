@@ -1,4 +1,4 @@
-from .. import Utils
+from ..Utils import Utils
 
 class CustomEvent:
 	_events = []

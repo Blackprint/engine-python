@@ -1,12 +1,15 @@
-from . import Port
-from .. import Utils
+from ..Utils import Utils
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from .Port import Port
 
 class Cable:
 	type = None
-	owner: Port
-	target: Port
-	input: Port
-	output: Port
+	owner: 'Port'
+	target: 'Port'
+	input: 'Port'
+	output: 'Port'
 	disabled = False
 	isRoute = False
 	connected = False
@@ -91,7 +94,7 @@ class Cable:
 			this.input._cache = None
 
 		# Remove from cable owner
-		if(owner & (not which or owner == which)):
+		if(owner and (not which or owner == which)):
 			i = Utils.findFromList(owner.cables, this)
 			if(i != -1):
 				owner.cables.pop(i)

@@ -1,8 +1,10 @@
-from Blackprint import Utils, PortType, Types
-from .Port import PortFeature
-import collections
+from ..Utils import Utils
+from ..Port.PortFeature import Port
+from ..Types import Types
+from ..Utils import Utils
+from collections.abc import MutableMapping
 
-class PortLink(collections.MutableMapping):
+class PortLink(MutableMapping):
 	_iface = None
 	_which = None
 	_ifacePort = None
@@ -10,7 +12,7 @@ class PortLink(collections.MutableMapping):
 	def __getitem__(this, key):
 		port = this._ifacePort[key]
 
-		if(port.feature == PortType.Trigger):
+		if(port.feature == Port.Trigger):
 			return port.default
 
 		# This port must use values from connected output
@@ -31,7 +33,7 @@ class PortLink(collections.MutableMapping):
 
 				if(cable.connected == False or cable.disabled):
 					port.iface._requesting = False
-					if(port.feature == PortType.ArrayOf):
+					if(port.feature == Port.ArrayOf):
 						port._cache = []
 
 					port._cache = port.default
@@ -46,7 +48,7 @@ class PortLink(collections.MutableMapping):
 
 				port.iface._requesting = False
 
-				if(port.feature == PortType.ArrayOf):
+				if(port.feature == Port.ArrayOf):
 					port._cache = []
 
 					if(output.value != None):
@@ -61,7 +63,7 @@ class PortLink(collections.MutableMapping):
 				port._cache = finalVal
 				return port._cache
 
-			isNotArrayPort = port.feature != PortType.ArrayOf
+			isNotArrayPort = port.feature != Port.ArrayOf
 
 			# Return multiple data as an array
 			cables = port.cables
@@ -106,7 +108,7 @@ class PortLink(collections.MutableMapping):
 		if(port.source == 'input'):
 			raise Exception("Can't set data to input port")
 
-		if(port.iface.node.disablePorts or (not (port.splitted or port.allowResync) & port.value == val)):
+		if(port.iface.node.disablePorts or (not (port.splitted or port.allowResync) and port.value == val)):
 			return
 
 		if(val == None):
@@ -124,8 +126,8 @@ class PortLink(collections.MutableMapping):
 		port.value = val
 		port.emit('value', {"port": port})
 
-		if(port.feature == PortType.StructOf & port.splitted):
-			PortFeature.StructOf_handle(port, val)
+		if(port.feature == Port.StructOf and port.splitted):
+			Port.StructOf_handle(port, val)
 			return
 
 		port.sync()
@@ -172,7 +174,7 @@ class PortLink(collections.MutableMapping):
 		linkedPort = this._iface._newPort(portName, type, def_, this._which, haveFeature)
 		iPort[portName] = linkedPort
 
-		if(haveFeature == PortType.Trigger & this._which == 'input'):
+		if(haveFeature == Port.Trigger and this._which == 'input'):
 			this._ifacePort[portName] = linkedPort.default
 		else: this._ifacePort[portName] = linkedPort.createLinker()
 

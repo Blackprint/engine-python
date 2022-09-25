@@ -1,12 +1,4 @@
-from .. import Types
-
-class PortType:
-	ArrayOf = {}
-	Default = {}
-	Trigger = {}
-	Union = {}
-	StructOf = {}
-	Route = {}
+from ..Types import Types
 
 class Port:
 	# This port can contain multiple cable as input
@@ -17,7 +9,7 @@ class Port:
 	@staticmethod
 	def ArrayOf(type):
 		return {
-			'feature': PortType.ArrayOf,
+			'feature': Port.ArrayOf,
 			'type': type
 		}
 
@@ -38,7 +30,7 @@ class Port:
 	@staticmethod
 	def Default(type, val):
 		return {
-			'feature': PortType.Default,
+			'feature': Port.Default,
 			'type': type,
 			'value': val
 		}
@@ -49,7 +41,7 @@ class Port:
 	@staticmethod
 	def Trigger(func):
 		return {
-			'feature': PortType.Trigger,
+			'feature': Port.Trigger,
 			'func': func
 		}
 
@@ -59,7 +51,7 @@ class Port:
 	@staticmethod
 	def Union(types):
 		return {
-			'feature': PortType.Union,
+			'feature': Port.Union,
 			'type': types
 		}
 
@@ -84,7 +76,7 @@ class Port:
 	@staticmethod
 	def StructOf(type, struct):
 		return {
-			'feature': PortType.StructOf,
+			'feature': Port.StructOf,
 			'type': type,
 			'value': struct
 		}
@@ -118,7 +110,7 @@ class Port:
 	@staticmethod
 	def StructOf_unsplit(port):
 		parent = port._parent
-		if(parent == None & port.struct != None):
+		if(parent == None and port.struct != None):
 			parent = port
 
 		parent.splitted = False

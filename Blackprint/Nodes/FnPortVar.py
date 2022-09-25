@@ -1,8 +1,11 @@
-from .. import PortType, Types, Node, Interface
-from ..Nodes import Enums
-import Blackprint
+from ..Port.PortFeature import Port
+from ..Types import Types
+from ..Node import Node
+from ..Interface import Interface
+from ..Nodes.Enums import Enums
+from ..Internal import registerNode, registerInterface
 
-@Blackprint.registerNode('BP/FnVar/Input')
+@registerNode('BP/FnVar/Input')
 class FnVarInput(Node):
 	output = {}
 
@@ -28,7 +31,7 @@ class FnVarInput(Node):
 		# This will trigger the port to request from outside and assign to this node's port
 		this.output['Val'](iface._parentFunc.node.input[iface.data['name']]())
 
-@Blackprint.registerNode('BP/FnVar/Output')
+@registerNode('BP/FnVar/Output')
 class FnVarOutput(Node):
 	input = {}
 	def __init__(this, instance):
@@ -54,7 +57,7 @@ class BPFnVarInOut(Interface):
 		this._parentFunc = this.node.instance._funcMain
 
 
-@Blackprint.registerInterface('BPIC/BP/FnVar/Input')
+@registerInterface('BPIC/BP/FnVar/Input')
 class FnVarInputIface(BPFnVarInOut):
 	def __init__(this, node):
 		BPFnVarInOut.__init__(this, node)
@@ -128,7 +131,7 @@ class FnVarInputIface(BPFnVarInOut):
 	def _addListener(this):
 		port = this._proxyIface.output[this.data['name']]
 
-		if(port.feature == PortType.Trigger):
+		if(port.feature == Port.Trigger):
 			def _listener():
 				this.ref.Output['Val']()
 
@@ -161,11 +164,11 @@ class FnVarInputIface(BPFnVarInOut):
 		if(this._listener == None): return
 
 		port = this._proxyIface.output[this.data['name']]
-		if(port.feature == PortType.Trigger):
+		if(port.feature == Port.Trigger):
 			port.off('call', this._listener)
 		else: port.off('value', this._listener)
 
-@Blackprint.registerInterface('BPIC/BP/FnVar/Output')
+@registerInterface('BPIC/BP/FnVar/Output')
 class FnVarOutputIface(BPFnVarInOut):
 	def __init__(this, node):
 		BPFnVarInOut.__init__(this, node)
@@ -232,9 +235,9 @@ class FnVarOutputIface(BPFnVarInOut):
 
 
 def getFnPortType(port, which, parentNode, ref):
-	if(port.feature == Blackprint.PortType.Trigger):
+	if(port.feature == Port.Trigger):
 		if(which == 'input'): # Function Input (has output port inside, and input port on main node):
 			return Types.Function
-		else: return Blackprint.Port.Trigger(parentNode.output[ref.name]._callAll)
+		else: return Port.Trigger(parentNode.output[ref.name]._callAll)
 
 	else: return port.feature != port.feature(port.type) if None else port.type

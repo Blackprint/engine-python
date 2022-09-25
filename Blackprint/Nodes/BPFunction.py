@@ -1,9 +1,15 @@
 from typing import Dict
-from .. import Types as PortType, Utils, Interface, Engine, Node, Types
-from ..Constructor import CustomEvent, Port
-from . import FnPortVar, BPVariable, Enums
-from .BPVariable import VarScope
-import Blackprint
+
+from ..Port.PortFeature import Port
+from ..Utils import Utils
+from ..Interface import Interface
+from ..Node import Node
+from ..Types import Types
+from ..Constructor.CustomEvent import CustomEvent
+from ..Constructor.Port import Port as PortClass
+from .BPVariable import VarScope, BPVariable
+from .Enums import Enums
+from ..Internal import registerNode, registerInterface
 import re
 
 # used for instance.createFunction
@@ -13,7 +19,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 	input = {} # Port template
 	output = {} # Port template
-	node: function = None # Node constructor
+	node = None # Node constructor (Function)
 
 	def __init__(this, id, options, instance):
 		this.rootInstance = instance # root instance
@@ -199,8 +205,8 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 			ifaces = iface.bpInstance.ifaceList
 			for proxyVar in ifaces:
-				if((which == 'output' & proxyVar.namespace != "BP/FnVar/Output")
-					or (which == 'input' & proxyVar.namespace != "BP/FnVar/Input")):
+				if((which == 'output' and proxyVar.namespace != "BP/FnVar/Output")
+					or (which == 'input' and proxyVar.namespace != "BP/FnVar/Input")):
 					continue
 
 				if(proxyVar.data.name != fromName): continue
@@ -261,7 +267,7 @@ class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
 		i = Utils.findFromList(used, this.iface)
 		if(i != False): used.pop(i)
 
-@Blackprint.registerNode('BP/Fn/Input')
+@registerNode('BP/Fn/Input')
 class NodeInput(Node):
 	Output = []
 	def __init__(this, instance):
@@ -287,7 +293,7 @@ class NodeInput(Node):
 		# This will trigger the port to request from outside and assign to this node's port
 		this.output[name](this.iface._funcMain.node.input[name]())
 
-@Blackprint.registerNode('BP/Fn/Output')
+@registerNode('BP/Fn/Output')
 class NodeOutput(Node):
 	Input = []
 	def __init__(this, instance):
@@ -323,7 +329,7 @@ class NodeOutput(Node):
 
 		iface.node.output[cable.input.name](cable.value())
 
-@Blackprint.registerInterface('BPIC/BP/Fn/Main')
+@registerInterface('BPIC/BP/Fn/Main')
 class FnMain(Interface):
 	_importOnce = False
 	_save = None
@@ -335,6 +341,8 @@ class FnMain(Interface):
 		this._importOnce = True
 		node = this.node
 
+		# ToDo: will this be slower if we lazy import the module like below?
+		from ..Engine import Engine
 		this._bpInstance = Engine()
 
 		bpFunction = node._funcInstance
@@ -379,7 +387,7 @@ class FnMain(Interface):
 		(this._save)(False, False, True)
 
 class BPFnInOut(Interface):
-	def addPort(this, port: Port, customName):
+	def addPort(this, port: PortClass, customName):
 		if(port == None): raise Exception("Can't set type with None")
 
 		if(port.iface.namespace.startswith("BP/Fn")):
@@ -393,7 +401,7 @@ class BPFnInOut(Interface):
 		else: name = port.name
 
 		reff = None
-		if(port.feature == PortType.Trigger):
+		if(port.feature == Port.Trigger):
 			reff = {'node': {}, 'port': {}}
 			def callback():
 				reff['node'].output[reff['port'].name]()
@@ -474,7 +482,7 @@ class BPFnInOut(Interface):
 
 			del funcMainNode._funcInstance.output[name]
 
-@Blackprint.registerInterface('BPIC/BP/Fn/Input')
+@registerInterface('BPIC/BP/Fn/Input')
 class FnInput(BPFnInOut):
 	Output = []
 	def __init__(this, node):
@@ -482,7 +490,7 @@ class FnInput(BPFnInOut):
 		this.title = 'Input'
 		this.type = 'bp-fn-input'
 
-@Blackprint.registerInterface('BPIC/BP/Fn/Output')
+@registerInterface('BPIC/BP/Fn/Output')
 class FnOutput(BPFnInOut):
 	Input = []
 	def __init__(this, node):

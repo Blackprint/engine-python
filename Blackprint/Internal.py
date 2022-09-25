@@ -1,6 +1,7 @@
 import re
 import os
-from . import Interface, Utils
+from .Interface import Interface
+from .Utils import Utils
 from importlib import import_module
 
 class Internal:
