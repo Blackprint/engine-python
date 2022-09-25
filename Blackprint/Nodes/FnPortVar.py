@@ -72,7 +72,7 @@ class FnVarInputIface(BPFnVarInOut):
 
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
-		if(not ports.has_key(name)):
+		if(name not in ports):
 			iPort = node.createPort('output', 'Val', Types.Any)
 			proxyIface = this._proxyIface
 
@@ -121,7 +121,7 @@ class FnVarInputIface(BPFnVarInOut):
 			proxyIface.once("_add.[name]", this._waitPortInit)
 
 		else:
-			if(not this.output.has_key('Val')):
+			if('Val' not in this.output):
 				port = ports[name]
 				portType = getFnPortType(port, 'input', this._parentFunc, port._name)
 				node.createPort('output', 'Val', portType)
@@ -183,7 +183,7 @@ class FnVarOutputIface(BPFnVarInOut):
 
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
-		if(not ports.has_key(name)):
+		if(name not in ports):
 			iPort = node.createPort('input', 'Val', Types.Any)
 			proxyIface = this._parentFunc._proxyOutput.iface
 

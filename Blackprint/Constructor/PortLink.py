@@ -165,7 +165,7 @@ class PortLink(MutableMapping):
 		iPort = this._iface[this._which]
 		exist = iPort[portName]
 
-		if(iPort.has_key(portName)):
+		if(portName in iPort):
 			return exist
 
 		# Determine type and add default value for each type

@@ -92,7 +92,7 @@ class BPVarGetSet(Interface):
 	_onChanged = None
 
 	def imported(this, data):
-		if(not data.has_key('scope') or not data.has_key('name')):
+		if(('scope' not in data) or ('name' not in data)):
 			raise Exception("'scope' and 'name' options is required for creating variable node")
 
 		this.changeVar(data['name'], data['scope'])
@@ -120,7 +120,7 @@ class BPVarGetSet(Interface):
 		else: # private
 			scope = this.node.instance.variables
 
-		if(not scope.has_key(name)):
+		if(name not in scope):
 			if(scopeId == VarScope.public): _scopeName = 'public'
 			elif(scopeId == VarScope.private): _scopeName = 'private'
 			elif(scopeId == VarScope.shared): _scopeName = 'shared'
@@ -186,7 +186,7 @@ class IVarGet(BPVarGetSet):
 	def _reinitPort(this):
 		temp = this._bpVarRef
 		node = this.node
-		if(this.output.has_key('Val')):
+		if('Val' in this.output):
 			node.deletePort('output', 'Val')
 
 		ref = this.node.output
@@ -227,7 +227,7 @@ class IVarSet(BPVarGetSet):
 		node = this.node
 		temp = this._bpVarRef
 
-		if(input.has_key('Val')):
+		if('Val' in input):
 			node.deletePort('input', 'Val')
 
 		if(temp.type == Types.Function):

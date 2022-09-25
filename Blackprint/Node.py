@@ -32,7 +32,7 @@ class Node(CustomEvent):
 		if(this.contructed == False):
 			raise Exception("Make sure you have call 'Node.__init__(instance);' when constructing nodes before '.setInterface'")
 
-		if(Internal.interface.has_key(namespace) == False):
+		if(namespace not in Internal.interface):
 			raise Exception(f"Node interface for '[{namespace}]' was not found, maybe .registerInterface() haven't being called?")
 
 		iface = Internal.interface[namespace](this)
@@ -51,11 +51,11 @@ class Node(CustomEvent):
 	def renamePort(this, which, name, to):
 		iPort = this.iface[which]
 
-		if(not iPort.has_key(name)):
-			raise Exception("$which port with name '$name' was not found")
+		if(name not in iPort):
+			raise Exception(f"{which} port with name '{name}' was not found")
 
-		if(iPort.has_key(to)):
-			raise Exception("$which port with name '$to' already exist")
+		if(to in iPort):
+			raise Exception(f"{which} port with name '{to}' already exist")
 
 		temp = iPort[name]
 		iPort[to] = temp

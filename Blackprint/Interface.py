@@ -72,7 +72,7 @@ class Interface(CustomEvent):
 		# Load saved port data value
 		inputs = this.input
 		for key, val in ports.items():
-			if(inputs.has_key(key)):
+			if(key in inputs):
 				port = inputs[key]
 				port.default = val
 

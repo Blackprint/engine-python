@@ -83,31 +83,33 @@ class Engine(CustomEvent):
 		this.iface = []
 		this.ref = []
 
-	def importJSON(this, json, options={}):
+	def importJSON(this, json, options: Dict={}):
 		if(isinstance(json, str)):
 			json = JSON.loads(json)
 
-		appendMode = options.has_key('appendMode') and options['appendMode'] == False
+		appendMode = 'appendMode' in options and options['appendMode'] == False
 		if(not appendMode): this.clearNodes()
 
 		# Do we need this?
 		# this.emit("json.importing",:appendMode: options.appendMode, raw: json})
 
-		metadata = json['_']
-		del json['_']
+		metadata = None
+		if('_' in json):
+			metadata = json['_']
+			del json['_']
 		
 		if(metadata != None):
-			if(metadata.has_key('env')):
+			if('env' in metadata):
 				Environment.imports(metadata['env'])
 
-			if(metadata.has_key('functions')):
+			if('functions' in metadata):
 				functions = metadata['functions']
 	
 				for key, value in functions.items():
 					this.createFunction(key, value)
 
 	
-			if(metadata.has_key('variables')):
+			if('variables' in metadata):
 				variables = metadata['variables']
 	
 				for key, value in variables.items():
@@ -124,15 +126,15 @@ class Engine(CustomEvent):
 			for iface in ifaces:
 				iface['i'] += appendLength
 				ifaceOpt = {
-					'id': iface['id'] if iface.has_key('id') else None,
+					'id': iface['id'] if('id' in iface) else None,
 					'i': iface['i']
 				}
 
-				if(iface.has_key('data')):
+				if('data' in iface):
 					ifaceOpt['data'] = iface['data']
-				if(iface.has_key('input_d')):
+				if('input_d' in iface):
 					ifaceOpt['input_d'] = iface['input_d']
-				if(iface.has_key('output_sw')):
+				if('output_sw' in iface):
 					ifaceOpt['output_sw'] = iface['output_sw']
 
 				# @var Interface | Nodes.FnMain 
@@ -149,11 +151,11 @@ class Engine(CustomEvent):
 			for ifaceJSON in ifaces:
 				iface = inserted[ifaceJSON['i']]
 
-				if(ifaceJSON.has_key('route')):
+				if('route' in ifaceJSON):
 					iface.node.routes.routeTo(inserted[ifaceJSON['route']['i']])
 
 				# If have output connection
-				if(ifaceJSON.has_key('output')):
+				if('output' in ifaceJSON):
 					out = ifaceJSON['output']
 
 					# Every output port that have connection
@@ -272,7 +274,7 @@ class Engine(CustomEvent):
 			iface._prepare_(func)
 
 		iface.namespace = namespace
-		if(options.has_key('id')):
+		if('id' in options):
 			iface.id = options['id']
 			this.iface[iface.id] = iface
 			this.ref[iface.id] = iface.ref
@@ -281,7 +283,7 @@ class Engine(CustomEvent):
 			if(parent != None):
 				parent.rootInstance.ref[iface.id] = iface.ref
 
-		if(options.has_key('i')):
+		if('i' in options):
 			iface.i = options['i']
 			this.ifaceList[iface.i] = iface
 
@@ -320,7 +322,7 @@ class Engine(CustomEvent):
 		return iface
 
 	def createVariable(this, id, options):
-		if(this.variables.has_key(id)):
+		if(id in this.variables):
 			this.variables[id].destroy()
 			del this.variables[id]
 
@@ -334,7 +336,7 @@ class Engine(CustomEvent):
 		return temp
 
 	def createFunction(this, id, options):
-		if(this.functions.has_key(id)):
+		if(id in this.functions):
 			this.functions[id].destroy()
 			del this.functions[id]
 
@@ -342,12 +344,12 @@ class Engine(CustomEvent):
 		temp = BPFunction(id, options, this)
 		this.functions[id] = temp
 
-		if(options.has_key('vars')):
+		if('vars' in options):
 			vars = options['vars']
 			for val in vars:
 				temp.createVariable(val, {"scope": VarScope.shared})
 
-		if(options.has_key('privateVars')):
+		if('privateVars' in options):
 			privateVars = options['privateVars']
 			for val in privateVars:
 				temp.addPrivateVars(val)

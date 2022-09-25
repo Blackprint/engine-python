@@ -148,7 +148,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		return instance.createNode(this.node, options)
 
 	def createVariable(this, id, options):
-		if(this.variables.has_key(id)):
+		if(id in this.variables):
 			raise Exception("Variable id already exist: id")
 
 		# deepProperty
@@ -412,8 +412,8 @@ class BPFnInOut(Interface):
 		# nodeA, nodeB # Main (input) . Input (output), Output (input) . Main (output)
 		if(this.type == 'bp-fn-input'): # Main (input): . Input (output):
 			inc = 1
-			while(this.output.has_key(name)):
-				if(this.output.has_key(name + inc)): inc += 1
+			while(name in this.output):
+				if((name + inc) in this.output): inc += 1
 				else:
 					name += inc
 					break
@@ -424,8 +424,8 @@ class BPFnInOut(Interface):
 
 		else: # Output (input) . Main (output)
 			inc = 1
-			while(this.input.has_key(name)):
-				if(this.input.has_key(name + inc)): inc += 1
+			while(name in this.input):
+				if((name + inc) in this.input): inc += 1
 				else:
 					name += inc
 					break

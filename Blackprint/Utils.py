@@ -9,7 +9,7 @@ class Utils:
 		if(value != None):
 			last = path.pop()
 			for key in path:
-				if(obj.has_key(key) == False):
+				if(key not in obj):
 					obj[key] = []
 
 				obj = obj[key]

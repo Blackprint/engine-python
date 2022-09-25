@@ -18,7 +18,7 @@ class CustomEvent:
 		else:
 			events = this.once
 
-		if(events.has_key(eventName) == False):
+		if(eventName not in events):
 			events[eventName] = []
 
 		events[eventName].append(func)
@@ -40,7 +40,7 @@ class CustomEvent:
 			del this.once[eventName]
 			return
 
-		if(not this.events.has_key(eventName)): return
+		if(eventName not in this.events): return
 
 		i = Utils.findFromList(func, this.events[eventName])
 		if(i != False):
@@ -54,12 +54,12 @@ class CustomEvent:
 		events = this.events
 		once = this.once
 
-		if(events.has_key(eventName)):
+		if(eventName in events):
 			evs = events[eventName]
 			for val in evs:
 				val(data)
 
-		if(once.has_key(eventName)):
+		if(eventName in once):
 			evs = once[eventName]
 			for val in evs:
 				val(data)

@@ -133,12 +133,12 @@ class Port(CustomEvent):
 
 	def _cableConnectError(this, name, obj, severe=True):
 		msg = "Cable notify: [name]"
-		if(obj.has_key('iface')): msg += "\nIFace: [obj['iface'].namespace]"
+		if('iface' in obj): msg += "\nIFace: [obj['iface'].namespace]"
 
-		if(obj.has_key('port')):
+		if('port' in obj):
 			msg += "\nFrom port: [obj['port'].name] (iface: [obj['port'].iface.namespace])\n - Type: [obj['port'].source] ([obj['port'].type.name])"
 
-		if(obj.has_key('target')):
+		if('target' in obj):
 			msg += "\nTo port: [obj['target'].name] (iface: [obj['target'].iface.namespace])\n - Type: [obj['target'].source] ([obj['target'].type.name])"
 
 		obj['message'] = msg

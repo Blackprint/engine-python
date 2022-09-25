@@ -43,7 +43,7 @@ class BPEnvGetSet(Interface):
 		this.data['name'] = data['name']
 
 		# Create environment if not exist
-		if(not Environment.map.has_key(data['name'])):
+		if(data['name'] not in Environment.map):
 			Environment.set(data['name'], '')
 
 @registerInterface('BPIC/BP/Env/Get')
