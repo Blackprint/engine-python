@@ -17,7 +17,7 @@ class Environment:
 
 	@staticmethod
 	def set(key, val: str):
-		if(re.search("[^A-Z_][^A-Z0-9_]", key) != None):
+		if(re.search(r"[^A-Z_][^A-Z0-9_]", key) != None):
 			raise Exception("Environment must be uppercase and not contain any symbol except underscore, and not started by a number. But got: key")
 
 		map = Environment.map

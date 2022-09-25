@@ -12,7 +12,7 @@ class Internal:
 	def _loadNamespace(path):
 		namespace = Internal.namespace
 
-		if(re.search('[<>:"\'|?*\\\\]', path) or (".." in path)):
+		if(re.search(r'[<>:"\'|?*\\\\]', path) or (".." in path)):
 			raise Exception(f"Illegal character detected [{path}] when importing nodes!")
 
 		for value in namespace:
@@ -57,38 +57,3 @@ def _loadNode(path):
 			import_module(temp)
 
 Internal.interface['BP/default'] = Interface
-
-# Below is for internal only
-# class EvIface:
-# 	function __init__(
-# 		iface
-# 	):}
-
-# class EvPort:
-# 	function __init__(
-# 		port
-# 	):}
-
-# class EvEnv:
-# 	function __init__(
-# 		key,
-# 		value=None,
-# 	):}
-
-# class EvVariableNew:
-# 	function __init__(
-# 		scope,
-# 		id,
-# 	):}
-
-# class EvPortValue:
-# 	function __init__(
-# 		port,
-# 		target,
-# 		cable,
-# 	):}
-
-# class EvPortSelf:
-# 	function __init__(
-# 		port
-# 	):}
