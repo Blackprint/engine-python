@@ -1,10 +1,11 @@
-from ..... import Blackprint
-from .... import utils
+import Blackprint
+import types
+from ...utils import colorLog
 
-@Blackprint.registerNode('Example/Button')
+@Blackprint.registerNode('Example/Button/Simple')
 class Simple(Blackprint.Node):
 	output = {
-		'Clicked': Blackprint.Types.Function
+		'Clicked': types.FunctionType
 	}
 
 	def __init__(this, instance):
@@ -16,5 +17,5 @@ class Simple(Blackprint.Node):
 @Blackprint.registerInterface('BPIC/Example/Button')
 class ButtonIFace(Blackprint.Interface):
 	def clicked(this, ev = None):
-		utils.colorLog("Button/Simple:", "'Trigger' button clicked")
-		this.node.output.Clicked()
+		colorLog("Button/Simple:", "'Trigger' button clicked")
+		this.node.output['Clicked']()

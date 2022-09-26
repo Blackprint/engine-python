@@ -10,29 +10,27 @@ if TYPE_CHECKING:
 	from .Node import Node
 
 class Temp:
-	list = ['input', 'output']
+	list = ['input', 'output'] # static property
 
 class Interface(CustomEvent):
 	id: str # Named ID
 	i: int # Generated Index
 	title = 'No title'
 	interface = 'BP/default'
-	importing = True
-	_dynamicPort = False
-	_enum = None
-	isGhost = False
-
-	node: 'Node'
 	namespace: str
-	_requesting = False
+	importing = True
+	isGhost = False
+	ref: References
 
 	# @var Nodes/FnMain 
 	_funcMain = None
-
-	ref: References
+	_requesting = False
+	_enum = None
+	_dynamicPort = False
 
 	def __init__(this, node):
-		this.node = node
+		CustomEvent.__init__(this)
+		this.node: 'Node' = node
 
 	def _prepare_(this, clazz):
 		node = this.node
@@ -43,17 +41,17 @@ class Interface(CustomEvent):
 		node.routes = RoutePort(this)
 
 		if(clazz.output != None):
-			node._outputLink = PortLink(node, 'output', clazz.output)
+			node.output = PortLink(node, 'output', clazz.output)
 			ref.IOutput = this.output
 			ref.Output = node.output
 
-		if(clazz.Input != None):
-			node._inputLink = PortLink(node, 'input', clazz.input)
+		if(clazz.input != None):
+			node.input = PortLink(node, 'input', clazz.input)
 			ref.IInput = this.input
 			ref.Input = node.input
 
-		if(clazz.property):
-			raise Exception("'node.property', 'iface.property', and 'static \$property' is reserved field for Blackprint")
+		# if(clazz.property):
+			# raise Exception("'node.property', 'iface.property', and 'static \$property' is reserved field for Blackprint")
 
 	def _newPort(this, portName, type, def_, which, haveFeature):
 		return PortClass(portName, type, def_, which, this, haveFeature)

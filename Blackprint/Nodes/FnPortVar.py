@@ -8,7 +8,6 @@ from ..Internal import registerNode, registerInterface
 @registerNode('BP/FnVar/Input')
 class FnVarInput(Node):
 	output = {}
-
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 
@@ -29,7 +28,7 @@ class FnVarInput(Node):
 		iface = this.iface
 
 		# This will trigger the port to request from outside and assign to this node's port
-		this.output['Val'](iface._parentFunc.node.input[iface.data['name']]())
+		this.output['Val'] = iface._parentFunc.node.input[iface.data['name']]
 
 @registerNode('BP/FnVar/Output')
 class FnVarOutput(Node):
@@ -48,7 +47,7 @@ class FnVarOutput(Node):
 
 	def update(this, cable):
 		id = this.iface.data['name']
-		this.refOutput[id](this.ref.Input["Val"]())
+		this.refOutput[id] = this.ref.Input["Val"]
 
 class BPFnVarInOut(Interface):
 	def imported(this, data):
@@ -154,7 +153,7 @@ class FnVarInputIface(BPFnVarInOut):
 					return
 
 	
-				this.ref.Output['Val'](port.value)
+				this.ref.Output['Val'] = port.value
 
 			this._listener = _listener
 			port.on('value', _listener)

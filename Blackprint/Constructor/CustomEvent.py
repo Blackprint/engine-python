@@ -1,8 +1,9 @@
 from ..Utils import Utils
 
 class CustomEvent:
-	_events = []
-	_once = []
+	def __init__(this):
+		this._events = {}
+		this._once = {}
 
 	def on(this, eventName, func, once = False):
 		if(' ' in eventName):
@@ -14,9 +15,9 @@ class CustomEvent:
 			return
 
 		if(once == False):
-			events = this.events
+			events = this._events
 		else:
-			events = this.once
+			events = this._once
 
 		if(eventName not in events):
 			events[eventName] = []
@@ -36,23 +37,23 @@ class CustomEvent:
 			return
 
 		if(func == None):
-			del this.events[eventName]
-			del this.once[eventName]
+			del this._events[eventName]
+			del this._once[eventName]
 			return
 
-		if(eventName not in this.events): return
+		if(eventName not in this._events): return
 
-		i = Utils.findFromList(func, this.events[eventName])
+		i = Utils.findFromList(this._events[eventName], func)
 		if(i != False):
-			this.events[eventName].pop(i)
+			this._events[eventName].pop(i)
 
-		i = Utils.findFromList(func, this.once[eventName])
+		i = Utils.findFromList(this._once[eventName], func)
 		if(i != False):
-			this.once[eventName].pop(i)
+			this._once[eventName].pop(i)
 
 	def emit(this, eventName, data=None):
-		events = this.events
-		once = this.once
+		events = this._events
+		once = this._once
 
 		if(eventName in events):
 			evs = events[eventName]

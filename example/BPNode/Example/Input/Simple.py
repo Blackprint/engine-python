@@ -1,15 +1,16 @@
-from ..... import Blackprint
-from .... import utils
+import Blackprint
+import types
+from ...utils import colorLog
 
 @Blackprint.registerNode('Example/Input/Simple')
 class Simple(Blackprint.Node):
 	output = {
-		'Changed': Blackprint.Types.Function,
-		'Value': Blackprint.Types.String,
+		'Changed': types.FunctionType,
+		'Value': str,
 	}
 
 	def __init__(this, instance):
-		super(Simple, this).__init__(instance)
+		Blackprint.Node.__init__(this, instance)
 
 		iface = this.setInterface('BPIC/Example/Input')
 		iface.title = "Input"
@@ -17,7 +18,7 @@ class Simple(Blackprint.Node):
 	# Bring value from imported iface to node output
 	def imported(this, data):
 		val = data['value']
-		if(val): utils.colorLog("Input/Simple:", "Imported data: {val}")
+		if(val): colorLog("Input/Simple:", f"Imported data: {val}")
 
 		this.iface.data.value = val
 
@@ -28,11 +29,11 @@ class InputIFaceData:
 
 	@property
 	def value(this):
-		return this._data.value
+		return this._data['value']
 
 	@value.setter
 	def value(this, val):
-		this._data.value = val
+		this._data['value'] = val
 		this._iface.changed(val)
 
 @Blackprint.registerInterface('BPIC/Example/Input')
@@ -48,9 +49,9 @@ class InputIFace(Blackprint.Interface):
 		if(this.importing != False):
 			return
 
-		utils.colorLog("Input/Simple:", "The input box have new value: $val")
-		node.output['Value'](val)
-		node.syncOut('data', {'value' : this.data.value})
+		colorLog("Input/Simple:", f"The input box have new value: {val}")
+		node.output['Value'] = val
+		node.syncOut('data', {'value': this.data.value})
 
 		# This will call every connected node
 		node.output['Changed']()

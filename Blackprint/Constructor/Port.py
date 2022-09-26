@@ -1,20 +1,27 @@
+from types import FunctionType
+
+from ..Internal import EvCableError, EvPortValue
 from ..Constructor.CustomEvent import CustomEvent
 from ..Constructor.Cable import Cable
-from ..Port.PortFeature import Port
+from ..Port.PortFeature import Port as PortFeature
 from ..Types import Types
 from ..Nodes.Enums import Enums
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from ..Interface import Interface
 
 class Port(CustomEvent):
 	name: str
 	type = None
-	cables = []
+	cables: list[Cable] = None
 	source: str
-	iface = None
+	iface: 'Interface' = None
 	default = None
 	value = None
 	sync = False
 	feature = None
-	onConnect = False
+	onConnect = None
 	splitted = False
 	struct = None
 	allowResync = False # Retrigger connected node's .update when the output value is similar
@@ -26,41 +33,44 @@ class Port(CustomEvent):
 	_func = None
 
 	def __init__(this, portName, type, def_, which, iface, feature):
+		CustomEvent.__init__(this)
+
 		this.name = portName
 		this.type = type
 		this.source = which
 		this.iface = iface
+		this.cables = []
 
 		if(feature == False):
 			this.default = def_
 			return
 
 		# this.value
-		if(feature == Port.Trigger):
+		if(feature == PortFeature.Trigger):
 			def callb():
 				def_(this)
 				this.iface.node.routes.routeOut()
 
 			this.default = callb
 
-		elif(feature == Port.StructOf):
+		elif(feature == PortFeature.StructOf):
 			this.struct = def_
 		else: this.default = def_
 
 		this.feature = feature
 
 	def _getPortFeature(this):
-		if(this.feature == Port.ArrayOf):
-			return Port.ArrayOf(this.type)
+		if(this.feature == PortFeature.ArrayOf):
+			return PortFeature.ArrayOf(this.type)
 
-		elif(this.feature == Port.Default):
-			return Port.Default(this.type, this.default)
+		elif(this.feature == PortFeature.Default):
+			return PortFeature.Default(this.type, this.default)
 
-		elif(this.feature == Port.Trigger):
-			return Port.Trigger(this._func)
+		elif(this.feature == PortFeature.Trigger):
+			return PortFeature.Trigger(this._func)
 
-		elif(this.feature == Port.Union):
-			return Port.Union(this.type)
+		elif(this.feature == PortFeature.Union):
+			return PortFeature.Union(this.type)
 
 		raise Exception("Port feature not recognized")
 
@@ -74,15 +84,15 @@ class Port(CustomEvent):
 
 	def createLinker(this):
 		# Callable port
-		if(this.source == 'output' and (this.type == Types.Function or this.type == Types.Route)):
+		if(this.source == 'output' and (this.type == FunctionType or this.type == Types.Route)):
 			this.sync = False
 
-			if(this.type == Types.Function):
+			if(this.type == FunctionType):
 				this._callAll = createCallablePort(this)
 			else:
 				this._callAll = createCallableRoutePort(this)
 
-		# if(this.feature == Port.Trigger):
+		# if(this.feature == PortFeature.Trigger):
 		# 	return this.default
 
 		# class PortLink already handle the linker
@@ -97,7 +107,7 @@ class Port(CustomEvent):
 			if(inp == None): continue
 			inp._cache = None
 			
-			temp = {"port": inp, "target": this, "cable": cable}
+			temp = EvPortValue(inp, this, cable)
 			inpIface = inp.iface
 
 			inp.emit('value', temp)
@@ -106,7 +116,7 @@ class Port(CustomEvent):
 			# Skip sync if the node has route cable
 			if(skipSync): continue
 
-			# echo "\n4. [inp.name] = [inpIface.title], [inpIface._requesting]"
+			# print(f"\n4. {inp.name} = {inpIface.title}, {inpIface._requesting}")
 
 			node = inpIface.node
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
@@ -132,22 +142,30 @@ class Port(CustomEvent):
 				cable.disabled += enable
 
 	def _cableConnectError(this, name, obj, severe=True):
-		msg = "Cable notify: [name]"
-		if('iface' in obj): msg += "\nIFace: [obj['iface'].namespace]"
+		msg = f"Cable notify: {name}"
+		iface = None
+		port = None
+		target = None
+
+		if('iface' in obj):
+			msg += f"\nIFace: {obj['iface'].namespace}"
+			iface = obj['iface']
 
 		if('port' in obj):
-			msg += "\nFrom port: [obj['port'].name] (iface: [obj['port'].iface.namespace])\n - Type: [obj['port'].source] ([obj['port'].type.name])"
+			msg += f"\nFrom port: {obj['port'].name} (iface: {obj['port'].iface.namespace})\n - Type: {obj['port'].source} ({obj['port'].type})"
+			port = obj['port']
 
 		if('target' in obj):
-			msg += "\nTo port: [obj['target'].name] (iface: [obj['target'].iface.namespace])\n - Type: [obj['target'].source] ([obj['target'].type.name])"
+			msg += f"\nTo port: {obj['target'].name} (iface: {obj['target'].iface.namespace})\n - Type: {obj['target'].source} ({obj['target'].type})"
+			target = obj['target']
 
-		obj['message'] = msg
 		instance = this.iface.node.instance
+		# print(msg)
 
 		if(severe and instance.throwOnError):
-			raise Exception(msg+"\n\n")
+			raise Exception(msg+"\n")
 
-		instance.emit(name, obj)
+		instance.emit(name, EvCableError(iface, port, target, msg))
 
 	def connectCable(this, cable: Cable):
 		if(cable.isRoute):
@@ -182,8 +200,8 @@ class Port(CustomEvent):
 			return False
 
 		if(cable.owner.source == 'output'):
-			if((this.feature == Port.ArrayOf and not Port.ArrayOf_validate(this.type, cable.owner.type))
-			   or (this.feature == Port.Union and not Port.Union_validate(this.type, cable.owner.type))):
+			if((this.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(this.type, cable.owner.type))
+			   or (this.feature == PortFeature.Union and not PortFeature.Union_validate(this.type, cable.owner.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
@@ -195,8 +213,8 @@ class Port(CustomEvent):
 				return False
 
 		elif(this.source == 'output'):
-			if((cable.owner.feature == Port.ArrayOf and not Port.ArrayOf_validate(cable.owner.type, this.type))
-			   or (cable.owner.feature == Port.Union and not Port.Union_validate(cable.owner.type, this.type))):
+			if((cable.owner.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(cable.owner.type, this.type))
+			   or (cable.owner.feature == PortFeature.Union and not PortFeature.Union_validate(cable.owner.type, this.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
@@ -210,16 +228,16 @@ class Port(CustomEvent):
 		# ToDo: recheck why we need to check if the constructor is a function
 		isInstance = True
 		if(cable.owner.type != this.type
-		   and cable.owner.type == Types.Function
-		   and this.type == Types.Function):
+		   and cable.owner.type == FunctionType
+		   and this.type == FunctionType):
 			if(cable.owner.source == 'output'):
 				isInstance = issubclass(cable.owner.type, this.type)
 			else: isInstance =  issubclass(this.type, cable.owner.type)
 
 		# Remove cable if type restriction
 		if(not isInstance or (
-			   cable.owner.type == Types.Function and this.type != Types.Function
-			or cable.owner.type != Types.Function and this.type == Types.Function
+			   cable.owner.type == FunctionType and this.type != FunctionType
+			or cable.owner.type != FunctionType and this.type == FunctionType
 		)):
 			this._cableConnectError('cable.wrong_type_pair', {
 				"cable": cable,
@@ -271,23 +289,25 @@ class Port(CustomEvent):
 			out = cable.target
 
 		# Remove old cable if the port not support array
-		if(inp.feature != Port.ArrayOf and inp.type != Types.Function):
+		if(inp.feature != PortFeature.ArrayOf and inp.type != FunctionType):
 			cables = inp.cables # Cables in input port
+			cableLen = len(cables)
 
-			if(len(cables) != 0):
+			if(cableLen != 0):
 				temp = cables[0]
 
-				if(temp == cable):
+				if(temp == cable and cableLen == 1): pass
+				else:
 					temp = cables[1]
 
-				if(temp != None):
-					inp._cableConnectError('cable.replaced', {
-						"cable": cable,
-						"oldCable": temp,
-						"port": inp,
-						"target": out,
-					}, False)
-					temp.disconnect()
+					if(temp != None):
+						inp._cableConnectError('cable.replaced', {
+							"cable": cable,
+							"oldCable": temp,
+							"port": inp,
+							"target": out,
+						}, False)
+						temp.disconnect()
 
 		# Connect this cable into port's cable list
 		this.cables.append(cable)
@@ -296,7 +316,7 @@ class Port(CustomEvent):
 
 		return True
 
-	def connectPort(this, port: Port):
+	def connectPort(this, port: 'Port'):
 		cable = Cable(port, this)
 		if(port._ghost): cable._ghost = True
 

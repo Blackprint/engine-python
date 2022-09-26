@@ -1,28 +1,30 @@
+from types import FunctionType
 from typing import Dict
 
 from ..Port.PortFeature import Port
 from ..Utils import Utils
 from ..Interface import Interface
 from ..Node import Node
-from ..Types import Types
 from ..Constructor.CustomEvent import CustomEvent
 from ..Constructor.Port import Port as PortClass
 from .BPVariable import VarScope, BPVariable
 from .Enums import Enums
-from ..Internal import registerNode, registerInterface
+from ..Internal import EvVariableNew, registerNode, registerInterface
 import re
 
 # used for instance.createFunction
 class BPFunction(CustomEvent): # <= _funcInstance
-	variables: Dict[str, BPVariable] = {} # shared between function
-	privateVars = [] # private variable (different from other function)
-
-	input = {} # Port template
-	output = {} # Port template
 	node = None # Node constructor (Function)
 
 	def __init__(this, id, options, instance):
-		this.rootInstance = instance # root instance
+		CustomEvent.__init__(this)
+
+		this.variables: Dict[str, BPVariable] = {} # shared between function
+		this.privateVars = [] # private variable (different from other function)
+
+		this.input = {} # Port template
+		this.output = {} # Port template
+		this.rootInstance = instance # root instance (Blackprint.Engine)
 
 		id = re.sub(r'[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\\\,.\/<>?]+', '_', id)
 		this.id = this.title = id
@@ -45,6 +47,8 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		uniqId = 0
 
 		def nodeContruct(instance):
+			nonlocal uniqId
+
 			BPFunctionNode.Input = input
 			BPFunctionNode.Output = output
 			BPFunctionNode.namespace = id
@@ -170,7 +174,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		if(id not in this.privateVars):
 			this.privateVars.append(id)
 
-			temp = {"scope": VarScope.private, "id": id}
+			temp = EvVariableNew(VarScope.private, id)
 			this.emit('variable.new', temp)
 			this.rootInstance.emit('variable.new', temp)
 
@@ -222,8 +226,8 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 # Main function node
 class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
-	Input = None
-	Output = None
+	input = None
+	output = None
 	namespace = None
 
 	type = 'function'
@@ -253,13 +257,13 @@ class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
 
 			# Sync all port value
 			for key, value in IOutput.items():
-				if(value.type == Types.Function): continue
-				Output[key](thisInput[key]())
+				if(value.type == FunctionType): continue
+				Output[key] = thisInput[key]
 
 			return
 
 		# Update output value on the input node inside the function node
-		Output[cable.input.name](cable.value())
+		Output[cable.input.name] = cable.value
 
 	def destroy(this):
 		used = this._funcInstance.used
@@ -269,7 +273,7 @@ class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
 
 @registerNode('BP/Fn/Input')
 class NodeInput(Node):
-	Output = []
+	output = {}
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 
@@ -291,11 +295,11 @@ class NodeInput(Node):
 		name = cable.output.name
 
 		# This will trigger the port to request from outside and assign to this node's port
-		this.output[name](this.iface._funcMain.node.input[name]())
+		this.output[name] = this.iface._funcMain.node.input[name]
 
 @registerNode('BP/Fn/Output')
 class NodeOutput(Node):
-	Input = []
+	input = {}
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 
@@ -322,12 +326,12 @@ class NodeOutput(Node):
 
 			# Sync all port value
 			for key, value in IOutput.items():
-				if(value.type == Types.Function): continue
-				Output[key](thisInput[key]())
+				if(value.type == FunctionType): continue
+				Output[key] = thisInput[key]
 
 			return
 
-		iface.node.output[cable.input.name](cable.value())
+		iface.node.output[cable.input.name] = cable.value
 
 @registerInterface('BPIC/BP/Fn/Main')
 class FnMain(Interface):
@@ -348,7 +352,7 @@ class FnMain(Interface):
 		bpFunction = node._funcInstance
 
 		newInstance = this._bpInstance
-		newInstance.variables = [] # _for one function
+		newInstance.variables = {} # _for one function
 		newInstance.sharedVariables = bpFunction.variables # shared between function
 		newInstance.functions = node.instance.functions
 		newInstance._funcMain = this
@@ -356,7 +360,7 @@ class FnMain(Interface):
 
 		bpFunction.refreshPrivateVars(newInstance)
 
-		swallowCopy = bpFunction.structure[0:]
+		swallowCopy = bpFunction.structure.copy()
 		this._bpInstance.importJSON(swallowCopy)
 
 		# Init port switches
@@ -436,7 +440,7 @@ class BPFnInOut(Interface):
 
 		outputPort = nodeB.createPort('output', name, portType)
 
-		if(portType == Types.Function):
+		if(portType == FunctionType):
 			inputPort = nodeA.createPort('input', name, Port.Trigger(outputPort._callAll))
 		else: inputPort = nodeA.createPort('input', name, portType)
 
@@ -446,16 +450,16 @@ class BPFnInOut(Interface):
 
 		if(this.type == 'bp-fn-input'):
 			outputPort._name = {"name": name} # When renaming port, this also need to be changed
-			this.emit("_add.[name]", outputPort)
+			this.emit(f"_add.{name}", outputPort)
 
 			def callback(ev):
-				outputPort.iface.node.output[outputPort.name](ev.cable.output.value)
+				outputPort.iface.node.output[outputPort.name] = ev.cable.output.value
 			
 			inputPort.on('value', callback) 
 			return outputPort
 
 		inputPort._name = {"name": name} # When renaming port, this also need to be changed
-		this.emit("_add.[name]", inputPort)
+		this.emit(f"_add.{name}", inputPort)
 		return inputPort
 
 	def renamePort(this, fromName, toName):
@@ -484,7 +488,7 @@ class BPFnInOut(Interface):
 
 @registerInterface('BPIC/BP/Fn/Input')
 class FnInput(BPFnInOut):
-	Output = []
+	output = {}
 	def __init__(this, node):
 		BPFnInOut.__init__(this, node)
 		this.title = 'Input'
@@ -492,7 +496,7 @@ class FnInput(BPFnInOut):
 
 @registerInterface('BPIC/BP/Fn/Output')
 class FnOutput(BPFnInOut):
-	Input = []
+	input = {}
 	def __init__(this, node):
 		BPFnInOut.__init__(this, node)
 		this.title = 'Output'

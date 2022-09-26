@@ -22,7 +22,6 @@ class BPEnvGet(Node):
 @registerNode('BP/Env/Set')
 class BPEnvSet(Node):
 	input = {"Val": str}
-
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 		iface = this.setInterface('BPIC/BP/Env/Set')
@@ -35,7 +34,7 @@ class BPEnvSet(Node):
 		iface._enum = Enums.BPEnvSet
 
 	def update(this, cable):
-		Environment.set(this.iface.data['name'], this.input["Val"]())
+		Environment.set(this.iface.data['name'], this.input["Val"])
 
 class BPEnvGetSet(Interface):
 	def imported(this, data):
@@ -52,12 +51,12 @@ class IEnvGet(BPEnvGetSet):
 		BPEnvGetSet.imported(this, data)
 		def _listener(v):
 			if(v.key != this.data['name']): return
-			this.ref.Output["Val"](v.value)
+			this.ref.Output["Val"] = v.value
 
 		this._listener = _listener
 
 		Event.on('environment.changed environment.added', _listener)
-		this.ref.Output["Val"](Environment.map[this.data['name']])
+		this.ref.Output["Val"] = Environment.map[this.data['name']]
 
 	def destroy(this):
 		if(this._listener == None): return

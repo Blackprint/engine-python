@@ -6,16 +6,14 @@ if TYPE_CHECKING:
 	from .Interface import Interface
 
 class RoutePort:
-	inp = [] # Allow incoming route from multiple path
-	out = None # Only one route/path
-	disableOut = False
-	disabled = False
-	_isPaused = False
-	isRoute = True
-	iface = None
-
 	def __init__(this, iface):
-		this.iface = iface
+		this.inp: list[Cable] = [] # Allow incoming route from multiple path
+		this.out: Cable = None # Only one route/path
+		this.disableOut = False
+		this.disabled = False
+		this.isRoute = True
+		this.iface: 'Interface' = iface
+		this._isPaused = False
 
 	# Connect other route port (this .out to other .inp port)
 	def routeTo(this, iface: 'Interface' = None):

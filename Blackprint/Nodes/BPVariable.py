@@ -1,3 +1,4 @@
+from types import FunctionType
 from ..Node import Node
 from ..Interface import Interface
 from ..Nodes.Enums import Enums
@@ -34,7 +35,7 @@ class VarSet(Node):
 		iface._dynamicPort = True # Port is initialized dynamically
 
 	def update(this, cable):
-		this.iface._bpVarRef.value(this.input['Val']())
+		this.iface._bpVarRef.value = this.input['Val']
 
 
 @registerNode('BP/Var/Get')
@@ -62,11 +63,13 @@ class BPVarTemp:
 # used for instance.createVariable
 class BPVariable(CustomEvent):
 	type = None
-	used = []
 	# this.totalSet = 0
 	# this.totalGet = 0
 
 	def __init__(this, id, options=None):
+		CustomEvent.__init__(this)
+
+		this.used = []
 		id = re.sub(r'[`~!@#$%^&*()\-_+=:}\[\]:"|;\'\\\\,.\/<>?]+', '_', id)
 		
 		# this.rootInstance = instance
@@ -192,13 +195,13 @@ class IVarGet(BPVarGetSet):
 		ref = this.node.output
 		node.createPort('output', 'Val', temp.type)
 
-		if(temp.type == Types.Function):
+		if(temp.type == FunctionType):
 			this._eventListen = 'call'
 			def callback(): ref['Val']()
 			this._onChanged = callback
 		else:
 			this._eventListen = 'value'
-			def callback(): ref['Val'](temp._value)
+			def callback(): ref['Val'] = temp._value
 			this._onChanged = callback
 
 		temp.on(this._eventListen, this._onChanged)
@@ -230,7 +233,7 @@ class IVarSet(BPVarGetSet):
 		if('Val' in input):
 			node.deletePort('input', 'Val')
 
-		if(temp.type == Types.Function):
+		if(temp.type == FunctionType):
 			def call():
 				temp.emit('call')
 

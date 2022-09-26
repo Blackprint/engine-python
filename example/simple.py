@@ -1,13 +1,5 @@
 import Blackprint
-from pathlib import Path
-
-# The nodes and interface is almost similar with the engine-js example
-# When creating your own interface please use specific interface naming
-# 'BPIC/LibraryName/FeatureName/NodeName'
-
-# Because Python did support dynamic import
-# our nodes in BPNode folders like this.. only used nodes that will be imported
-Blackprint.registerNamespace(Path(__file__).resolve().parent.as_posix() + '/BPNode')
+import BPNode # Register our nodes from BPNode folder
 
 # == Import JSON after all nodes was registered ==
 # You can import the JSON to Blackprint Sketch if you want to view the nodes visually
@@ -18,16 +10,16 @@ instance.importJSON('{"Example/Math/Random":[{"i":0,"x":298,"y":73,"output":{"Ou
 # Anyway.. lets to run something
 button = instance.iface['myButton']
 
-print("\n\n>> I'm clicking the button")
-button.clicked(123)
+print("\n>> I'm clicking the button")
+button.clicked()
 
 logger = instance.iface['myLogger']
-print("\n\n>> I got the output value: " + logger.log)
+print("\n>> I got the output value: " + logger.log)
 
-print("\n\n>> I'm writing something to the input box")
+print("\n>> I'm writing something to the input box")
 input = instance.iface['myInput']
 input.data.value = 'hello wrold'
 
 # you can also use getNodes if you haven't set the ID
 logger = instance.getNodes('Example/Display/Logger')[0].iface
-print("\n\n>> I got the output value: " + logger.log)
+print("\n>> I got the output value: " + logger.log)

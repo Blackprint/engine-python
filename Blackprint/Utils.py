@@ -1,3 +1,4 @@
+from types import FunctionType
 from .Types import Types
 from .Port.PortFeature import Port
 
@@ -18,10 +19,10 @@ class Utils:
 			return
 
 		for key in path:
-			obj = obj[key]
+			if(key not in obj):
+				return None
 
-			if(obj == None):
-				return obj
+			obj = obj[key]
 
 		return obj
 
@@ -32,42 +33,50 @@ class Utils:
 	
 		type = val
 		def_ = None
-		feature = val['feature']
+		feature = None
 	
-		if(feature == Port.Trigger):
-			def_ = val['func']
-			type = Types.Function
+		if(isinstance(val, dict)):
+			feature = val['feature']
+			if(feature == Port.Trigger):
+				def_ = val['func']
+				type = FunctionType
 
-		elif(feature == Port.ArrayOf):
-			type = val['type']
+			elif(feature == Port.ArrayOf):
+				type = val['type']
 
-			if(type == Types.Any):
-				def_ = None
-			else: def_ = []
+				if(type == Types.Any):
+					def_ = None
+				else: def_ = []
 
-		elif(feature == Port.Union):
-			type = val['type']
-		elif(feature == Port.Default):
-			type = val['type']
-			def_ = val['value']
+			elif(feature == Port.Union):
+				type = val['type']
+			elif(feature == Port.Default):
+				type = val['type']
+				def_ = val['value']
 
 		# Give default value for each primitive type
-		elif(type == Types.Number):
+		elif(type == int):
 			def_ = 0
-		elif(type == Types.Boolean):
+		elif(type == bool):
 			def_ = False
-		elif(type == Types.String):
+		elif(type == str):
 			def_ = ''
-		elif(type == Types.Array):
+		elif(type == list):
 			def_ = []
 		elif(type == Types.Any): 0 # Any
-		elif(type == Types.Function): 0
+		elif(type == FunctionType): 0
 		elif(type == Types.Route): 0
 		elif(feature == None):
 			raise Exception("Port for initialization must be a types", 1)
 		# else{
 		# 	def = port
-		# 	type = Types.String
+		# 	type = str
 		# }
 	
-		return [ type, def_, feature ]
+		return ( type, def_, feature )
+	
+	def findFromList(list, item):
+		try:
+			return list.index(item)
+		except ValueError:
+			return -1

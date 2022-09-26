@@ -1,9 +1,12 @@
 import re
+from typing import Dict
+
+from .Internal import EvEnv
 from .Event import Event
 
 class Environment:
-	_noEvent = False
-	map = []
+	_noEvent = False # static property
+	map: Dict[str, str] = {} # static property
 
 	# arr = ["KEY": "value"]
 	@staticmethod
@@ -24,7 +27,7 @@ class Environment:
 		map[key] = val
 
 		if(not Environment._noEvent):
-			temp = {"key": key, "value": val}
+			temp = EvEnv(key, val)
 			Event.emit('environment.added', temp)
 
 	@staticmethod
@@ -32,5 +35,5 @@ class Environment:
 		map = Environment.map
 		del map[key]
 
-		temp = {"key": key}
+		temp = EvEnv(key)
 		Event.emit('environment.deleted', temp)

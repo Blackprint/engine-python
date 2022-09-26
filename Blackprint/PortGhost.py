@@ -20,13 +20,13 @@ PortGhost.fakeIface = fakeIface
 class OutputPort(PortGhost):
 	_ghost = True
 	def __init__(this, type):
-		[ type, def_, haveFeature ] = Utils.determinePortType(type, PortGhost.fakeIface)
+		( type, def_, haveFeature ) = Utils.determinePortType(type, PortGhost.fakeIface)
 
 		PortGhost.__init__(this, 'Blackprint.OutputPort', type, def_, 'output', fakeIface, haveFeature)
 
 class InputPort(PortGhost):
 	_ghost = True
 	def __init__(this, type):
-		[ type, def_, haveFeature ] = Utils.determinePortType(type, PortGhost.fakeIface)
+		( type, def_, haveFeature ) = Utils.determinePortType(type, PortGhost.fakeIface)
 
 		PortGhost.__init__(this, 'Blackprint.InputPort', type, def_, 'input', fakeIface, haveFeature)

@@ -4,7 +4,7 @@ from .Nodes.BPVariable import VarScope, BPVariable
 from .Types import Types as PortType
 from .Environment import Environment
 from .Utils import Utils
-from .Internal import Internal
+from .Internal import EvError, EvIface, Internal
 from .Interface import Temp, Interface
 from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
@@ -12,17 +12,20 @@ from typing import Dict, List
 import json as JSON
 
 class Engine(CustomEvent):
-	iface: Dict[str, Interface] = {}
-	ifaceList: List[Interface] = []
-	_settings = {}
-	disablePorts = False
-	throwOnError = True
+	def __init__(this):
+		CustomEvent.__init__(this)
 
-	variables = {}
-	functions = {}
-	ref: Dict[str, Interface] = {}
+		this.iface: Dict[str, Interface] = {}
+		this.ifaceList: List[Interface] = []
+		this.disablePorts = False
+		this.throwOnError = True
 
-	_funcMain: FnMain = None
+		this.variables = {}
+		this.functions = {}
+		this.ref: Dict[str, Interface] = {}
+
+		this._funcMain: FnMain = None
+		this._settings = {}
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
@@ -34,14 +37,11 @@ class Engine(CustomEvent):
 			if(this.throwOnError):
 				raise Exception("Node to be deleted was not found")
 
-			return this.emit('error', {
-				"type": 'node_delete_not_found',
-				"data": {"iface": iface}
-			})
+			return this.emit('error', EvError('node_delete_not_found', EvIface(iface)))
 
 		# iface._bpDestroy = True
 
-		eventData = {"iface": iface}
+		eventData = EvIface(iface)
 		this.emit('node.delete', eventData)
 
 		iface.node.destroy()
@@ -80,8 +80,8 @@ class Engine(CustomEvent):
 			iface.destroy()
 
 		this.ifaceList = []
-		this.iface = []
-		this.ref = []
+		this.iface = {}
+		this.ref = {}
 
 	def importJSON(this, json, options: Dict={}):
 		if(isinstance(json, str)):
@@ -125,13 +125,12 @@ class Engine(CustomEvent):
 			# Every ifaces that using this namespace name
 			for iface in ifaces:
 				iface['i'] += appendLength
-				ifaceOpt = {
-					'id': iface['id'] if('id' in iface) else None,
-					'i': iface['i']
-				}
+				ifaceOpt = { 'i': iface['i'] }
 
 				if('data' in iface):
 					ifaceOpt['data'] = iface['data']
+				if('id' in iface):
+					ifaceOpt['id'] = iface['id']
 				if('input_d' in iface):
 					ifaceOpt['input_d'] = iface['input_d']
 				if('output_sw' in iface):
@@ -199,11 +198,12 @@ class Engine(CustomEvent):
 									linkPortB = targetNode.node.routes
 
 								else: raise Exception("Node port not found for targetNode.title with name: target[name]")
-
-							# echo "\n[current.title].[linkPortA.name]: [targetNode.title].[linkPortB.name]"
-
+							
 							linkPortA.connectPort(linkPortB)
-							# cable._print()
+
+							# print(f"\n{iface.title}.{linkPortA.name} -> {targetNode.title}.{linkPortB.name}")
+							# if linkPortA.connectPort(linkPortB):
+							# 	print(f"\n{iface.title}.{linkPortA.name} <-> {targetNode.title}.{linkPortB.name}")
 
 		# Call nodes init after creation processes was finished
 		for val in nodes:
@@ -241,23 +241,18 @@ class Engine(CustomEvent):
 
 	# ToDo: sync with JS, when creating function node this still broken
 	def createNode(this, namespace, options=None, nodes=None):
-		func = Utils.deepProperty(Internal.nodes, namespace.split('/'))
+		func = Internal.nodes.get(namespace)
 
 		# Try to load from registered namespace folder if exist
 		funcNode = None
+		if(namespace.startswith("BPI/F/")):
+			func = this.functions.get(namespace[6:])
+
+			if(func != None):
+				funcNode = (func.node)(this)
+
 		if(func == None):
-			if(namespace.startswith("BPI/F/")):
-				func = Utils.deepProperty(this.functions, namespace[6:].split('/'))
-
-				if(func != None):
-					funcNode = (func.node)(this)
-
-			else:
-				Internal._loadNamespace(namespace)
-				func = Utils.deepProperty(Internal.nodes, namespace.split('/'))
-
-			if(func == None):
-				raise Exception("Node nodes for namespace was not found, maybe .registerNode() haven't being called?")
+			raise Exception(f"Node nodes for namespace '{namespace}' was not found, maybe .registerNode() haven't being called?")
 
 		# @var Node 
 		node = funcNode if funcNode != None else func(this)
@@ -283,18 +278,25 @@ class Engine(CustomEvent):
 			if(parent != None):
 				parent.rootInstance.ref[iface.id] = iface.ref
 
-		if('i' in options):
+		if(options['i'] != None):
 			iface.i = options['i']
+
+			ii = len(this.ifaceList)
+			while ii <= iface.i:
+				ii += 1
+				this.ifaceList.append(None)
+
 			this.ifaceList[iface.i] = iface
 
 		else: this.ifaceList.append(iface)
 
-		defaultInputData = options['input_d']
-		if(defaultInputData != None):
-			iface._importInputs(defaultInputData)
+		if('input_d' in options):
+			defaultInputData = options['input_d']
+			if(defaultInputData != None):
+				iface._importInputs(defaultInputData)
 
-		savedData = options['data']
-		portSwitches = options['output_sw']
+		savedData = options['data'] if 'data' in options else None
+		portSwitches = options['output_sw'] if 'output_sw' in options else None
 
 		if(portSwitches != None):
 			for key, val in portSwitches.items():
@@ -374,3 +376,5 @@ def deepMerge(real, opt):
 			continue
 
 		real[key] = val
+
+Internal.interface['BP/default'] = Interface

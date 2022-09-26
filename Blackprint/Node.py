@@ -6,30 +6,31 @@ from .Constructor.PortLink import PortLink
 from .Interface import Interface
 from .Internal import Internal
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+	from .Engine import Engine
+
 class Node(CustomEvent):
-	_outputLink: PortClass = {}
-	output: PortLink = {}
-
-	_inputLink: PortClass = {}
-	input: PortLink = {}
-
-	iface: Interface = None
-	_contructed = False
+	output: PortLink = None
+	input: PortLink = None
 	disablePorts = False
-	routes: RoutePort = None
 
-	ref: References = None
-
-	# Reserved for future
-	# @param Engine instance 
 	def __init__(this, instance):
-		this.contructed = True
+		CustomEvent.__init__(this)
+
+		this.iface: Interface = None
+		this.instance: 'Engine' = instance
+		this.routes: RoutePort = None
+		this.ref: References = None
+
+		this._funcInstance = None
+		this._contructed = True
 
 	def setInterface(this, namespace='BP/default'):
 		if(this.iface != None):
 			raise Exception('node.setInterface() can only be called once')
 
-		if(this.contructed == False):
+		if(this._contructed == False):
 			raise Exception("Make sure you have call 'Node.__init__(instance);' when constructing nodes before '.setInterface'")
 
 		if(namespace not in Internal.interface):
@@ -45,8 +46,8 @@ class Node(CustomEvent):
 			raise Exception("Can only create port for 'input' and 'output'")
 
 		if(which == "input"):
-			return this._inputLink._add(name, type)
-		else: return this._outputLink._add(name, type)
+			return this.input._add(name, type)
+		else: return this.output._add(name, type)
 
 	def renamePort(this, which, name, to):
 		iPort = this.iface[which]
@@ -70,8 +71,8 @@ class Node(CustomEvent):
 			raise Exception("Can only delete port for 'input' and 'output'")
 
 		if(which == "input"):
-			return this._inputLink._delete(name)
-		else: return this._outputLink._delete(name)
+			return this.input._delete(name)
+		else: return this.output._delete(name)
 
 	def log(this, message):
 		this.instance._log({"iface": this.iface, "message": message})

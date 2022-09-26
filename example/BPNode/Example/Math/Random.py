@@ -1,15 +1,23 @@
 from random import randint
-from ..... import Blackprint
-from .... import utils
+import Blackprint
+from ...utils import colorLog
+
+def ReSeed(port):
+	node = port.iface.node
+
+	node.executed = True
+	node.output['Out'] = randint(0, 100)
+
+	# print("Re-seed called")
 
 @Blackprint.registerNode('Example/Math/Random')
 class Random(Blackprint.Node):
 	output = {
-		'Out': Blackprint.Types.Number
+		'Out': int
 	}
 
 	input = {
-		'Re-seed': Blackprint.Port.Trigger
+		'Re-seed': Blackprint.Port.Trigger(ReSeed)
 	}
 
 	executed = False
@@ -27,18 +35,7 @@ class Random(Blackprint.Node):
 		if(this.executed == True):
 			return False
 
-		utils.colorLog("Math/Random:", "Value request for port: {$cable.output.name}, from node: {$cable.input.iface.title}")
+		colorLog("Math/Random:", f"Value request for port: {cable.output.name}, from node: {cable.input.iface.title}")
 
 		# Let's create the value for him
-		this.input['Re-seed']
-
-
-def ReSeed(port):
-	node = port.iface.node
-
-	node.executed = True
-	node.output['Out'](randint(0, 100))
-
-	print("\nRe-seed called\n")
-
-Random.input['Re-seed'] = Blackprint.Port.Trigger(ReSeed)
+		this.input['Re-seed']()

@@ -1,3 +1,4 @@
+from ..Internal import EvPortSelf, EvPortValue
 from ..Utils import Utils
 
 from typing import TYPE_CHECKING
@@ -5,22 +6,10 @@ if TYPE_CHECKING:
 	from .Port import Port
 
 class Cable:
-	type = None
-	owner: 'Port'
-	target: 'Port'
-	input: 'Port'
-	output: 'Port'
-	disabled = False
-	isRoute = False
-	connected = False
-
-	# For remote-control
-	_evDisconnected = False
-
 	def __init__(this, owner, target):
 		this.type = owner.type
-		this.owner = owner
-		this.target = target
+		this.owner: 'Port' = owner
+		this.target: 'Port' = target
 		this.source = owner.source
 
 		if(owner.source == 'input'):
@@ -31,8 +20,15 @@ class Cable:
 			inp = target
 			out = owner
 
-		this.input = inp
-		this.output = out
+		this.input: 'Port' = inp
+		this.output: 'Port' = out
+
+		this.disabled = False
+		this.isRoute = False
+		this.connected = False
+
+		# For remote-control
+		this._evDisconnected = False
 
 	def _connected(this):
 		owner = this.owner
@@ -42,17 +38,17 @@ class Cable:
 		# Skip event emit or node update for route cable connection
 		if(this.isRoute): return
 
-		temp = {"port": owner, "target": target, "cable": this}
+		temp = EvPortValue(owner, target, this)
 		owner.emit('cable.connect', temp)
 		owner.iface.emit('cable.connect', temp)
 
-		temp2 = {"port": target, "target": owner, "cable": this}
+		temp2 = EvPortValue(target, owner, this)
 		target.emit('cable.connect', temp2)
 		target.iface.emit('cable.connect', temp2)
 
 		if(this.output.value == None): return
 
-		tempEv = {"port": this.output}
+		tempEv = EvPortSelf(this.output)
 		input = this.input
 		input.emit('value', tempEv)
 		input.iface.emit('value', tempEv)
@@ -62,6 +58,7 @@ class Cable:
 	def _print(this):
 		print(f"\nCable: {this.output.iface.title}.{this.output.name} . {this.input.name}.{this.input.iface.title}")
 
+	@property
 	def value(this):
 		return this.output.value
 
@@ -100,7 +97,7 @@ class Cable:
 				owner.cables.pop(i)
 
 			if(this.connected):
-				temp = {"port": owner, "target": target, "cable": this}
+				temp = EvPortValue(owner, target, this)
 				owner.emit('disconnect', temp)
 				owner.iface.emit('cable.disconnect', temp)
 				owner.iface.node.instance.emit('cable.disconnect', temp)
@@ -109,7 +106,7 @@ class Cable:
 
 			else:
 				nul = None
-				temp = {"port": owner, "target": nul, "cable": this}
+				temp = EvPortValue(owner, None, this)
 				owner.iface.emit('cable.cancel', temp)
 				# owner.iface.node.instance.emit('cable.cancel', temp)
 
@@ -119,7 +116,7 @@ class Cable:
 			if(i != -1):
 				target.cables.pop(i)
 
-			temp = {"port": target, "target": owner, "cable": this}
+			temp = EvPortValue(target, owner, this)
 			target.emit('disconnect', temp)
 			target.iface.emit('cable.disconnect', temp)
 
