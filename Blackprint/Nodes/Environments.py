@@ -38,7 +38,7 @@ class BPEnvSet(Node):
 
 class BPEnvGetSet(Interface):
 	def imported(this, data):
-		if(not data['name']): raise Exception("Parameter 'name' is required")
+		if('name' not in data or data['name'] == ''): raise Exception("Parameter 'name' is required")
 		this.data['name'] = data['name']
 
 		# Create environment if not exist

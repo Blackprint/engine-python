@@ -45,4 +45,7 @@ class Multiply(Blackprint.Node):
 		input = this.input
 
 		colorLog("Math/Multiply:", f"Multiplying {input['A']} with {input['B']}")
+		if input['B'] == None:
+			return 55555
+
 		return input['A'] * input['B']

@@ -11,6 +11,7 @@ from .BPVariable import VarScope, BPVariable
 from .Enums import Enums
 from ..Internal import EvVariableNew, registerNode, registerInterface
 import re
+from .FnPortVar import PortName, FnVarInput # Don't delete, this is needed for importing the internal node
 
 # used for instance.createFunction
 class BPFunction(CustomEvent): # <= _funcInstance
@@ -49,8 +50,8 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		def nodeContruct(instance):
 			nonlocal uniqId
 
-			BPFunctionNode.Input = input
-			BPFunctionNode.Output = output
+			BPFunctionNode.input = input
+			BPFunctionNode.output = output
 			BPFunctionNode.namespace = id
 
 			node = BPFunctionNode(instance)
@@ -153,7 +154,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 	def createVariable(this, id, options):
 		if(id in this.variables):
-			raise Exception("Variable id already exist: id")
+			raise Exception(f"Variable id already exist: {id}")
 
 		# deepProperty
 
@@ -198,12 +199,12 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		del main[fromName]
 
 		used = this.used
-		proxyPort = which == 'input' if 'output' else 'output'
+		proxyPort = 'input' if which == 'output' else 'output'
 
 		for iface in used:
 			iface.node.renamePort(which, fromName, toName)
 
-			temp = which == iface._proxyOutput if 'output' else iface._proxyInput
+			temp = iface._proxyOutput if which == 'output' else iface._proxyInput
 			temp.iface[proxyPort][fromName]._name.name = toName
 			temp.renamePort(proxyPort, fromName, toName)
 
@@ -225,7 +226,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 			iface.node.instance.deleteNode(iface)
 
 # Main function node
-class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
+class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 	input = None
 	output = None
 	namespace = None
@@ -237,7 +238,7 @@ class BPFunctionNode(Node): # Main function node . BPI/F/:FunctionName}
 		iface.type = 'function'
 		iface._enum = Enums.BPFnMain
 
-	# @var FnMain 
+	# @var FnMain
 	iface = None
 
 	def init(this):
@@ -338,6 +339,9 @@ class FnMain(Interface):
 	_importOnce = False
 	_save = None
 	_portSw_ = None
+	# input = {} # Port template
+	# output = {} # Port template
+
 	def _BpFnInit(this):
 		if(this._importOnce):
 			raise Exception("Can't import function more than once")
@@ -388,7 +392,7 @@ class FnMain(Interface):
 
 	def renamePort(this, which, fromName, toName):
 		this.node._funcInstance.renamePort(which, fromName, toName)
-		(this._save)(False, False, True)
+		this._save(False, False, True)
 
 class BPFnInOut(Interface):
 	def addPort(this, port: PortClass, customName):
@@ -406,15 +410,15 @@ class BPFnInOut(Interface):
 
 		reff = None
 		if(port.feature == Port.Trigger):
-			reff = {'node': {}, 'port': {}}
-			def callback():
+			reff = {'node': None, 'port': None, "t":0}
+			def callback(port):
 				reff['node'].output[reff['port'].name]()
 
 			portType = Port.Trigger(callback)
-		else: portType = port.feature != port._getPortFeature() if None else port.type
+		else: portType = port._getPortFeature() if port.feature != None else port.type
 
 		# nodeA, nodeB # Main (input) . Input (output), Output (input) . Main (output)
-		if(this.type == 'bp-fn-input'): # Main (input): . Input (output):
+		if(this.type == 'bp-fn-input'): # Main (input) . Input (output):
 			inc = 1
 			while(name in this.output):
 				if((name + inc) in this.output): inc += 1
@@ -438,7 +442,9 @@ class BPFnInOut(Interface):
 			nodeB = this._funcMain.node
 			nodeB._funcInstance.output[name] = portType
 
-		outputPort = nodeB.createPort('output', name, portType)
+		if(port.feature == Port.Trigger):
+			outputPort = nodeB.createPort('output', name, FunctionType)
+		else: outputPort = nodeB.createPort('output', name, portType)
 
 		if(portType == FunctionType):
 			inputPort = nodeA.createPort('input', name, Port.Trigger(outputPort._callAll))
@@ -449,7 +455,7 @@ class BPFnInOut(Interface):
 			reff['port'] = inputPort
 
 		if(this.type == 'bp-fn-input'):
-			outputPort._name = {"name": name} # When renaming port, this also need to be changed
+			outputPort._name = PortName(name) # When renaming port, this also need to be changed
 			this.emit(f"_add.{name}", outputPort)
 
 			def callback(ev):
@@ -458,7 +464,7 @@ class BPFnInOut(Interface):
 			inputPort.on('value', callback) 
 			return outputPort
 
-		inputPort._name = {"name": name} # When renaming port, this also need to be changed
+		inputPort._name = PortName(name) # When renaming port, this also need to be changed
 		this.emit(f"_add.{name}", inputPort)
 		return inputPort
 

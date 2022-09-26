@@ -19,13 +19,13 @@ class Port(CustomEvent):
 	iface: 'Interface' = None
 	default = None
 	value = None
-	sync = False
 	feature = None
 	onConnect = None
 	splitted = False
 	struct = None
 	allowResync = False # Retrigger connected node's .update when the output value is similar
 
+	_sync = True
 	_ghost = False
 	_name = None
 	_callAll = None
@@ -47,6 +47,9 @@ class Port(CustomEvent):
 
 		# this.value
 		if(feature == PortFeature.Trigger):
+			if(iface.namespace == 'BP/Fn/Input' and portName == 'Exec'):
+				raise Exception("qwe")
+
 			def callb():
 				def_(this)
 				this.iface.node.routes.routeOut()
@@ -85,7 +88,7 @@ class Port(CustomEvent):
 	def createLinker(this):
 		# Callable port
 		if(this.source == 'output' and (this.type == FunctionType or this.type == Types.Route)):
-			this.sync = False
+			this._sync = False
 
 			if(this.type == FunctionType):
 				this._callAll = createCallablePort(this)
@@ -183,7 +186,7 @@ class Port(CustomEvent):
 			return False
 
 		if((this.onConnect != None and this.onConnect(cable, cable.owner))
-			or (cable.owner.onConnect != None and (cable.owner.onConnect)(cable, this))):
+			or (cable.owner.onConnect != None and cable.owner.onConnect(cable, this))):
 			return False
 
 		# Remove cable if ...

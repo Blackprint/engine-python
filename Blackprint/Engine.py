@@ -159,7 +159,7 @@ class Engine(CustomEvent):
 
 					# Every output port that have connection
 					for portName, ports in out.items():
-						linkPortA = iface.output[portName]
+						linkPortA = iface.output.get(portName)
 
 						if(linkPortA == None):
 							if(iface._enum == Enums.BPFnInput):
@@ -167,14 +167,14 @@ class Engine(CustomEvent):
 								linkPortA = iface.addPort(target, portName)
 
 								if(linkPortA == None):
-									raise Exception("Can't create output port ([portName]) for function ([iface._funcMain.node._funcInstance.id])")
+									raise Exception(f"Can't create output port ({portName}) for function ({iface._funcMain.node._funcInstance.id})")
 
 							elif(iface._enum == Enums.BPVarGet):
 								target = this._getTargetPortType(this, 'input', ports)
 								iface.useType(target)
 								linkPortA = iface.output[portName]
 
-							else: raise Exception("Node port not found for iface (index: ifaceJSON[i], title: iface.title), with port name: portName")
+							else: raise Exception(f"Node port not found for iface (index: {ifaceJSON[i]}, title: {iface.title}), with port name: {portName}")
 
 						# Current output's available targets
 						for target in ports:
@@ -182,13 +182,13 @@ class Engine(CustomEvent):
 							targetNode = inserted[target['i']]
 
 							# output can only meet input port
-							linkPortB = targetNode.input[target['name']]
+							linkPortB = targetNode.input.get(target['name'])
 							if(linkPortB == None):
 								if(targetNode._enum == Enums.BPFnOutput):
 									linkPortB = targetNode.addPort(linkPortA, target['name'])
 
 									if(linkPortB == None):
-										raise Exception("Can't create output port ([target['name']]) for function ([targetNode._funcMain.node._funcInstance.id])")
+										raise Exception(f"Can't create output port ({target['name']}) for function ({targetNode._funcMain.node._funcInstance.id})")
 
 								elif(targetNode._enum == Enums.BPVarSet):
 									targetNode.useType(linkPortA)
@@ -197,7 +197,7 @@ class Engine(CustomEvent):
 								elif(linkPortA.type == PortType.Route):
 									linkPortB = targetNode.node.routes
 
-								else: raise Exception("Node port not found for targetNode.title with name: target[name]")
+								else: raise Exception(f"Node port not found for targetNode.title with name: {target['name']}")
 							
 							linkPortA.connectPort(linkPortB)
 
@@ -220,7 +220,10 @@ class Engine(CustomEvent):
 	def _getTargetPortType(this, instance, whichPort, targetNodes):
 		target = targetNodes[0] # ToDo: check all target in case if it's supporting Union type
 		targetIface = instance.ifaceList[target['i']]
-		return targetIface[whichPort][target['name']]
+
+		if(whichPort == 'input'):
+			return targetIface.input[target['name']]
+		else: return targetIface.output[target['name']]
 
 	def getNode(this, id):
 		ifaces = this.ifaceList
@@ -249,7 +252,7 @@ class Engine(CustomEvent):
 			func = this.functions.get(namespace[6:])
 
 			if(func != None):
-				funcNode = (func.node)(this)
+				funcNode = func.node(this)
 
 		if(func == None):
 			raise Exception(f"Node nodes for namespace '{namespace}' was not found, maybe .registerNode() haven't being called?")
@@ -262,13 +265,14 @@ class Engine(CustomEvent):
 		if(this.disablePorts): node.disablePorts = True
 
 		if(iface == None):
-			raise Exception("Node interface was not found, do you forget to call \$node.setInterface() ?")
+			raise Exception("Node interface was not found, do you forget to call node.setInterface() ?")
+
+		iface.namespace = namespace
 
 		# Create the linker between the nodes and the iface
 		if(funcNode == None):
 			iface._prepare_(func)
 
-		iface.namespace = namespace
 		if('id' in options):
 			iface.id = options['id']
 			this.iface[iface.id] = iface

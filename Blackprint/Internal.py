@@ -36,7 +36,7 @@ def registerInterface(templatePath: str): # Decorator
 	templatePath = templatePath.replace('\\', '/')
 
 	if(not templatePath.startswith('BPIC/')):
-		raise Exception("$templatePath: The first parameter of 'registerInterface' must be started with BPIC to avoid name conflict. Please name the interface similar with 'templatePrefix' for your module that you have set on 'blackprint.config.js'.", 1)
+		raise Exception(f"{templatePath}: The first parameter of 'registerInterface' must be started with BPIC to avoid name conflict. Please name the interface similar with 'templatePrefix' for your module that you have set on 'blackprint.config.js'.", 1)
 
 	def register(clazz):
 		Internal.interface[templatePath] = clazz

@@ -150,8 +150,10 @@ class PortLink(MutableMapping):
 			Port.StructOf_handle(port, val)
 			return
 
+		if(port._sync == False):
+			return
+
 		port.sync()
-		return
 
 	def __delitem__(this, key):
 		# dict.__delitem__(this, key)
@@ -191,7 +193,6 @@ class PortLink(MutableMapping):
 		port.disconnectAll()
 
 		del iPort[portName]
-		del this._ifacePort[portName]
 
 	def __str__(this):
 		iPort = this._ifacePort

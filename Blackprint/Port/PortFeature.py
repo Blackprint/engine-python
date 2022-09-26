@@ -40,6 +40,7 @@ class Port:
 	 
 	@staticmethod
 	def Trigger(func):
+		if func == None: raise Exception("Callback must not be None")
 		return {
 			'feature': Port.Trigger,
 			'func': func

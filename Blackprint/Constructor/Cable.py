@@ -71,7 +71,7 @@ class Cable:
 			elif(output.out == this): output.out = None
 			elif(input.out == this): input.out = None
 
-			i = Utils.findFromList(output.inp, this) if output.inp else -1
+			i = Utils.findFromList(output.inp, this)
 			if(i != -1):
 				output.inp.pop(i)
 

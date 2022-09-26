@@ -1,3 +1,4 @@
+from .Types import Types
 from .Constructor.Cable import Cable
 from .Nodes.Enums import Enums
 
@@ -12,7 +13,9 @@ class RoutePort:
 		this.disableOut = False
 		this.disabled = False
 		this.isRoute = True
+		this.source = 'route'
 		this.iface: 'Interface' = iface
+		this.type = Types.Route
 		this._isPaused = False
 
 	# Connect other route port (this .out to other .inp port)
@@ -80,6 +83,6 @@ class RoutePort:
 		if(_enum == Enums.BPFnOutput):
 			_cable = None
 			targetRoute.iface.node.update(_cable)
-			return targetRoute.iface._funcMain.node.routes.routeOut(cable)
+			return targetRoute.iface._funcMain.node.routes.routeOut()
 
 		return targetRoute.routeIn(cable)

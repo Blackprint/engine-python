@@ -9,6 +9,7 @@ from ..Internal import registerNode, registerInterface
 from ..Types import Types
 from ..Port.PortFeature import Port
 import re
+from .Environments import BPEnvGet # Don't delete, this is needed for importing the internal node
 
 # For internal library use only
 class VarScope:
@@ -129,7 +130,7 @@ class BPVarGetSet(Interface):
 			elif(scopeId == VarScope.shared): _scopeName = 'shared'
 			else: _scopeName = 'unknown'
 
-			raise Exception("'[name]' variable was not defined on the '[_scopeName] (scopeId: scopeId)' instance")
+			raise Exception(f"'{name}' variable was not defined on the '{_scopeName} (scopeId: {scopeId})' instance")
 
 		return scope
 
@@ -234,7 +235,7 @@ class IVarSet(BPVarGetSet):
 			node.deletePort('input', 'Val')
 
 		if(temp.type == FunctionType):
-			def call():
+			def call(port):
 				temp.emit('call')
 
 			node.createPort('input', 'Val', Port.Trigger(call))
