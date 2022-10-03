@@ -17,10 +17,19 @@ class Simple(Blackprint.Node):
 
 	# Bring value from imported iface to node output
 	def imported(this, data):
+		if data == None: return
+
 		val = data['value']
+		colorLog("Input/Simple:", f"Old data: {this.iface.data.value}")
 		if(val): colorLog("Input/Simple:", f"Imported data: {val}")
 
 		this.iface.data.value = val
+
+	# Remote sync in
+	def syncIn(this, id, data):
+		if(id == 'data'):
+			this.iface.data.value = data.value
+			this.iface.changed(data.value)
 
 class InputIFaceData:
 	def __init__(this, iface):
@@ -35,6 +44,7 @@ class InputIFaceData:
 	def value(this, val):
 		this._data['value'] = val
 		this._iface.changed(val)
+		this._iface.node.routes.routeOut()
 
 @Blackprint.registerInterface('BPIC/Example/Input')
 class InputIFace(Blackprint.Interface):

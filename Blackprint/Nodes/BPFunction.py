@@ -76,13 +76,13 @@ class BPFunction(CustomEvent): # <= _funcInstance
 		for iface_ in list:
 			if(iface_.node == fromNode): continue
 
-			nodeInstance = iface_._bpInstance
+			nodeInstance = iface_.bpInstance
 			nodeInstance.pendingRender = True # Force recalculation for cable position
 
 			if(eventName == 'cable.connect' or eventName == 'cable.disconnect'):
 				input = obj.cable.input
 				output = obj.cable.output
-				ifaceList = fromNode.iface._bpInstance.ifaceList
+				ifaceList = fromNode.iface.bpInstance.ifaceList
 
 				# Skip event that also triggered when deleting a node
 				if(input.iface._bpDestroy or output.iface._bpDestroy): continue
@@ -137,7 +137,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 				})
 
 			elif(eventName == 'node.delete'):
-				index = Utils.findFromList(fromNode.iface._bpInstance.ifaceList, obj.iface)
+				index = Utils.findFromList(fromNode.iface.bpInstance.ifaceList, obj.iface)
 				if(index == False):
 					raise Exception("Failed to get node index")
 
@@ -183,7 +183,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 		list = this.used
 		for iface in list:
-			vars = iface._bpInstance.variables
+			vars = iface.bpInstance.variables
 			vars[id] = BPVariable(id)
 
 	def refreshPrivateVars(this, instance):
@@ -272,6 +272,8 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 		i = Utils.findFromList(used, this.iface)
 		if(i != False): used.pop(i)
 
+		this.iface.bpInstance.destroy()
+
 @registerNode('BP/Fn/Input')
 class NodeInput(Node):
 	output = {}
@@ -320,9 +322,10 @@ class NodeOutput(Node):
 
 	def update(this, cable):
 		iface = this.iface._funcMain
+		Output = iface.node.output
+
 		if(cable == None): # Triggered by port route
 			IOutput = iface.output
-			Output = iface.node.output
 			thisInput = this.input
 
 			# Sync all port value
@@ -332,7 +335,7 @@ class NodeOutput(Node):
 
 			return
 
-		iface.node.output[cable.input.name] = cable.value
+		Output[cable.input.name] = cable.value
 
 @registerInterface('BPIC/BP/Fn/Main')
 class FnMain(Interface):
@@ -351,11 +354,11 @@ class FnMain(Interface):
 
 		# ToDo: will this be slower if we lazy import the module like below?
 		from ..Engine import Engine
-		this._bpInstance = Engine()
+		this.bpInstance = Engine()
 
 		bpFunction = node._funcInstance
 
-		newInstance = this._bpInstance
+		newInstance = this.bpInstance
 		newInstance.variables = {} # _for one function
 		newInstance.sharedVariables = bpFunction.variables # shared between function
 		newInstance.functions = node.instance.functions
@@ -365,7 +368,7 @@ class FnMain(Interface):
 		bpFunction.refreshPrivateVars(newInstance)
 
 		swallowCopy = bpFunction.structure.copy()
-		this._bpInstance.importJSON(swallowCopy)
+		this.bpInstance.importJSON(swallowCopy)
 
 		# Init port switches
 		if(this._portSw_ != None):
@@ -388,7 +391,7 @@ class FnMain(Interface):
 			bpFunction._syncing = False
 
 		this._save = _save
-		this._bpInstance.on('cable.connect cable.disconnect node.created node.delete node.id.changed', this._save)
+		this.bpInstance.on('cable.connect cable.disconnect node.created node.delete node.id.changed', this._save)
 
 	def renamePort(this, which, fromName, toName):
 		this.node._funcInstance.renamePort(which, fromName, toName)
@@ -415,6 +418,8 @@ class BPFnInOut(Interface):
 				reff['node'].output[reff['port'].name]()
 
 			portType = Port.Trigger(callback)
+		elif(port.feature == Port.ArrayOf):
+			portType = port.type
 		else: portType = port._getPortFeature() if port.feature != None else port.type
 
 		# nodeA, nodeB # Main (input) . Input (output), Output (input) . Main (output)
@@ -457,11 +462,6 @@ class BPFnInOut(Interface):
 		if(this.type == 'bp-fn-input'):
 			outputPort._name = PortName(name) # When renaming port, this also need to be changed
 			this.emit(f"_add.{name}", outputPort)
-
-			def callback(ev):
-				outputPort.iface.node.output[outputPort.name] = ev.cable.output.value
-			
-			inputPort.on('value', callback) 
 			return outputPort
 
 		inputPort._name = PortName(name) # When renaming port, this also need to be changed

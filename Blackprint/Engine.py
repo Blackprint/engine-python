@@ -8,6 +8,7 @@ from .Internal import EvError, EvIface, Internal
 from .Interface import Temp, Interface
 from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
+from .Constructor.OrderedExecution import OrderedExecution
 from typing import Dict, List
 import json as JSON
 
@@ -26,6 +27,9 @@ class Engine(CustomEvent):
 
 		this._funcMain: FnMain = None
 		this._settings = {}
+		this.executionOrder = OrderedExecution()
+
+		this._importing = False
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
@@ -89,6 +93,8 @@ class Engine(CustomEvent):
 
 		appendMode = 'appendMode' in options and options['appendMode'] == False
 		if(not appendMode): this.clearNodes()
+		reorderInputPort = []
+		this._importing = True
 
 		# Do we need this?
 		# this.emit("json.importing",:appendMode: options.appendMode, raw: json})
@@ -123,25 +129,25 @@ class Engine(CustomEvent):
 		# before we create cables for them
 		for namespace, ifaces in json.items():
 			# Every ifaces that using this namespace name
-			for iface in ifaces:
-				iface['i'] += appendLength
-				ifaceOpt = { 'i': iface['i'] }
+			for conf in ifaces:
+				conf['i'] += appendLength
+				confOpt = { 'i': conf['i'] }
 
-				if('data' in iface):
-					ifaceOpt['data'] = iface['data']
-				if('id' in iface):
-					ifaceOpt['id'] = iface['id']
-				if('input_d' in iface):
-					ifaceOpt['input_d'] = iface['input_d']
-				if('output_sw' in iface):
-					ifaceOpt['output_sw'] = iface['output_sw']
+				if('data' in conf):
+					confOpt['data'] = conf['data']
+				if('id' in conf):
+					confOpt['id'] = conf['id']
+				if('input_d' in conf):
+					confOpt['input_d'] = conf['input_d']
+				if('output_sw' in conf):
+					confOpt['output_sw'] = conf['output_sw']
 
 				# @var Interface | Nodes.FnMain 
-				temp = this.createNode(namespace, ifaceOpt, nodes)
-				inserted[iface['i']] = temp # Don't add  as it's already reference
+				iface = this.createNode(namespace, confOpt, nodes)
+				inserted[conf['i']] = iface # Don't add  as it's already reference
 
 				# For custom function node
-				temp._BpFnInit()
+				iface._BpFnInit()
 
 		# Create cable only from output and property
 		# > Important to be separated from above, so the cable can reference to loaded ifaces
@@ -174,7 +180,7 @@ class Engine(CustomEvent):
 								iface.useType(target)
 								linkPortA = iface.output[portName]
 
-							else: raise Exception(f"Node port not found for iface (index: {ifaceJSON[i]}, title: {iface.title}), with port name: {portName}")
+							else: raise Exception(f"Node port not found for iface (index: {ifaceJSON['i']}, title: {iface.title}), with port name: {portName}")
 
 						# Current output's available targets
 						for target in ports:
@@ -201,13 +207,44 @@ class Engine(CustomEvent):
 							
 							linkPortA.connectPort(linkPortB)
 
-							# print(f"\n{iface.title}.{linkPortA.name} -> {targetNode.title}.{linkPortB.name}")
+							# print(f"\n{iface.title}.{linkPortA.name} . {targetNode.title}.{linkPortB.name}")
 							# if linkPortA.connectPort(linkPortB):
-							# 	print(f"\n{iface.title}.{linkPortA.name} <-> {targetNode.title}.{linkPortB.name}")
+							# 	print(f"\n{iface.title}.{linkPortA.name} <. {targetNode.title}.{linkPortB.name}")
+
+		# Fix input port cable order
+		for value in reorderInputPort:
+			iface = value['iface']
+			cInput = value['config']['input']
+
+			for key, conf in cInput.items():
+				port = iface.input[key]
+				cables = port.cables
+				temp = []
+
+				a = 0
+				for ref in conf:
+					a += 1
+					name = ref['name']
+					targetIface = inserted[ref['i'] + appendLength]
+
+					for cable in cables:
+						if(cable.output.name != name or cable.output.iface != targetIface): continue
+
+						temp[a] = cable
+						break
+
+				for ref in temp:
+					if(ref == None): print(f"Some cable failed to be ordered for ({iface.title}: {key})")
+
+				port.cables = temp
 
 		# Call nodes init after creation processes was finished
 		for val in nodes:
 			val.init()
+
+		this._importing = True
+		# this.emit("json.imported", {appendMode: options.appendMode, nodes: inserted, raw: json})
+		this.executionOrder.next()
 
 		return inserted
 

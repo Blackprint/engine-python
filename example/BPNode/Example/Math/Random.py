@@ -32,8 +32,7 @@ class Random(Blackprint.Node):
 	def request(this, cable):
 		# Only run once this node never been executed
 		# Return false if no value was changed
-		if(this.executed == True):
-			return False
+		if(this.executed == True): return False
 
 		colorLog("Math/Random:", f"Value request for port: {cable.output.name}, from node: {cable.input.iface.title}")
 

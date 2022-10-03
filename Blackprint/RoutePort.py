@@ -56,8 +56,10 @@ class RoutePort:
 
 	def routeIn(this, cable):
 		node = this.iface.node
-		node.update(cable)
-		node.routes.routeOut()
+
+		if(this.iface._enum != Enums.BPFnInput):
+			node._bpUpdate()
+		else: node.routes.routeOut()
 
 	def routeOut(this):
 		if(this.disableOut): return
@@ -72,17 +74,15 @@ class RoutePort:
 		if(targetRoute == None): return
 
 		_enum = targetRoute.iface._enum
-		cable = this.out
 
 		if(_enum == None):
-			return targetRoute.routeIn(cable)
+			return targetRoute.routeIn()
 
-		if(_enum == Enums.BPFnMain):
-			return targetRoute.iface._proxyInput.routes.routeIn(cable)
+		# if(_enum == Enums.BPFnMain):
+		# 	return targetRoute.iface._proxyInput.routes.routeIn()
 
 		if(_enum == Enums.BPFnOutput):
-			_cable = None
-			targetRoute.iface.node.update(_cable)
+			targetRoute.iface.node.update(None)
 			return targetRoute.iface._funcMain.node.routes.routeOut()
 
-		return targetRoute.routeIn(cable)
+		return targetRoute.routeIn()

@@ -31,6 +31,9 @@ class Port(CustomEvent):
 	_callAll = None
 	_cache = None
 	_func = None
+	_hasUpdate = False
+	_hasUpdateCable = None
+	_node = None
 
 	def __init__(this, portName, type, def_, which, iface, feature):
 		CustomEvent.__init__(this)
@@ -40,6 +43,7 @@ class Port(CustomEvent):
 		this.source = which
 		this.iface = iface
 		this.cables = []
+		this._node = iface.node
 
 		if(feature == False):
 			this.default = def_
@@ -47,12 +51,11 @@ class Port(CustomEvent):
 
 		# this.value
 		if(feature == PortFeature.Trigger):
-			if(iface.namespace == 'BP/Fn/Input' and portName == 'Exec'):
-				raise Exception("qwe")
-
 			def callb():
 				def_(this)
-				this.iface.node.routes.routeOut()
+
+				if(this.iface._enum != Enums.BPFnMain):
+					this.iface.node.routes.routeOut()
 
 			this.default = callb
 
@@ -102,34 +105,53 @@ class Port(CustomEvent):
 
 	# Only for output port
 	def sync(this):
+		# Check all connected cables, if any node need to synchronize
 		cables = this.cables
+		thisNode = this._node
 		skipSync = this.iface.node.routes.out != None
+		instance = thisNode.instance
 
+		singlePortUpdate = False
+		if(not thisNode._bpUpdating):
+			singlePortUpdate = True
+			thisNode._bpUpdating = True
+		
+		if(thisNode.routes.out != None
+		   and thisNode.iface._enum == Enums.BPFnMain
+		   and thisNode.iface.bpInstance.executionOrder.length != 0):
+			skipSync = True
+		
 		for cable in cables:
 			inp = cable.input
 			if(inp == None): continue
 			inp._cache = None
 			
-			temp = EvPortValue(inp, this, cable)
 			inpIface = inp.iface
-
+			temp = EvPortValue(inp, this, cable)
 			inp.emit('value', temp)
 			inpIface.emit('port.value', temp)
 
+			if(skipSync == False and thisNode._bpUpdating):
+				if(inp.feature == PortFeature.ArrayOf):
+					inp._hasUpdate = True
+					cable._hasUpdate = True
+				else: inp._hasUpdateCable = cable
+
+				if(inpIface._requesting == False):
+					instance.executionOrder.add(inp._node)
+
 			# Skip sync if the node has route cable
-			if(skipSync): continue
+			if(skipSync or thisNode._bpUpdating): continue
 
 			# print(f"\n4. {inp.name} = {inpIface.title}, {inpIface._requesting}")
 
 			node = inpIface.node
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
-				node.update(cable)
-
-				if(inpIface._enum != Enums.BPFnMain):
-					node.routes.routeOut()
-
-				else:
-					inpIface._proxyInput.routes.routeOut()
+				node._bpUpdate()
+		
+		if(singlePortUpdate):
+			thisNode._bpUpdating = False
+			thisNode.instance.executionOrder.next()
 
 	def disableCables(this, enable=False):
 		cables = this.cables
@@ -181,12 +203,14 @@ class Port(CustomEvent):
 			cable.disconnect()
 			return False
 
-		if(cable.owner == this): # It's referencing to same port
+		cableOwner = cable.owner
+
+		if(cableOwner == this): # It's referencing to same port
 			cable.disconnect()
 			return False
 
-		if((this.onConnect != None and this.onConnect(cable, cable.owner))
-			or (cable.owner.onConnect != None and cable.owner.onConnect(cable, this))):
+		if((this.onConnect != None and this.onConnect(cable, cableOwner))
+			or (cableOwner.onConnect != None and cableOwner.onConnect(cable, this))):
 			return False
 
 		# Remove cable if ...
@@ -197,18 +221,18 @@ class Port(CustomEvent):
 			this._cableConnectError('cable.wrong_pair', {
 				"cable": cable,
 				"port": this,
-				"target": cable.owner
+				"target": cableOwner
 			})
 			cable.disconnect()
 			return False
 
-		if(cable.owner.source == 'output'):
-			if((this.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(this.type, cable.owner.type))
-			   or (this.feature == PortFeature.Union and not PortFeature.Union_validate(this.type, cable.owner.type))):
+		if(cableOwner.source == 'output'):
+			if((this.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(this.type, cableOwner.type))
+			   or (this.feature == PortFeature.Union and not PortFeature.Union_validate(this.type, cableOwner.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
-					"port": cable.owner,
+					"port": cableOwner,
 					"target": this
 				})
 
@@ -216,13 +240,13 @@ class Port(CustomEvent):
 				return False
 
 		elif(this.source == 'output'):
-			if((cable.owner.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(cable.owner.type, this.type))
-			   or (cable.owner.feature == PortFeature.Union and not PortFeature.Union_validate(cable.owner.type, this.type))):
+			if((cableOwner.feature == PortFeature.ArrayOf and not PortFeature.ArrayOf_validate(cableOwner.type, this.type))
+			   or (cableOwner.feature == PortFeature.Union and not PortFeature.Union_validate(cableOwner.type, this.type))):
 				this._cableConnectError('cable.wrong_type', {
 					"cable": cable,
 					"iface": this.iface,
 					"port": this,
-					"target": cable.owner
+					"target": cableOwner
 				})
 
 				cable.disconnect()
@@ -230,22 +254,22 @@ class Port(CustomEvent):
 
 		# ToDo: recheck why we need to check if the constructor is a function
 		isInstance = True
-		if(cable.owner.type != this.type
-		   and cable.owner.type == FunctionType
+		if(cableOwner.type != this.type
+		   and cableOwner.type == FunctionType
 		   and this.type == FunctionType):
-			if(cable.owner.source == 'output'):
-				isInstance = issubclass(cable.owner.type, this.type)
-			else: isInstance =  issubclass(this.type, cable.owner.type)
+			if(cableOwner.source == 'output'):
+				isInstance = issubclass(cableOwner.type, this.type)
+			else: isInstance =  issubclass(this.type, cableOwner.type)
 
 		# Remove cable if type restriction
 		if(not isInstance or (
-			   cable.owner.type == FunctionType and this.type != FunctionType
-			or cable.owner.type != FunctionType and this.type == FunctionType
+			   cableOwner.type == FunctionType and this.type != FunctionType
+			or cableOwner.type != FunctionType and this.type == FunctionType
 		)):
 			this._cableConnectError('cable.wrong_type_pair', {
 				"cable": cable,
 				"port": this,
-				"target": cable.owner
+				"target": cableOwner
 			})
 
 			cable.disconnect()
@@ -254,17 +278,17 @@ class Port(CustomEvent):
 		# Restrict connection between function input/output node with variable node
 		# Connection to similar node function IO or variable node also restricted
 		# These port is created on runtime dynamically
-		if(this.iface._dynamicPort and cable.owner.iface._dynamicPort):
+		if(this.iface._dynamicPort and cableOwner.iface._dynamicPort):
 			this._cableConnectError('cable.unsupported_dynamic_port', {
 				"cable": cable,
 				"port": this,
-				"target": cable.owner
+				"target": cableOwner
 			})
 
 			cable.disconnect()
 			return False
 
-		sourceCables = cable.owner.cables
+		sourceCables = cableOwner.cables
 
 		# Remove cable if there are similar connection for the ports
 		for _cable in sourceCables:
@@ -272,7 +296,7 @@ class Port(CustomEvent):
 				this._cableConnectError('cable.duplicate_removed', {
 					"cable": cable,
 					"port": this,
-					"target": cable.owner
+					"target": cableOwner
 				}, False)
 
 				cable.disconnect()
@@ -284,11 +308,11 @@ class Port(CustomEvent):
 		if(cable.target.source == 'input'):
 			# @var Port 
 			inp = cable.target
-			out = cable.owner
+			out = cableOwner
 
 		else:
 			# @var Port 
-			inp = cable.owner
+			inp = cableOwner
 			out = cable.target
 
 		# Remove old cable if the port not support array
@@ -337,7 +361,7 @@ def createCallablePort(port):
 				continue
 
 			if(target._name != None):
-				target.iface._parentFunc.node.output[target._name.name]()
+				target.iface._funcMain.node.output[target._name.name]()
 			else: target.iface.input[target.name].default()
 
 		port.emit('call')
@@ -352,6 +376,6 @@ def createCallableRoutePort(port):
 		cable = port.cables[0]
 		if(cable == None): return
 
-		cable.input.routeIn(cable)
+		cable.input.routeIn()
 
 	return callable

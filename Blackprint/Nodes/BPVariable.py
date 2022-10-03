@@ -72,16 +72,21 @@ class BPVariable(CustomEvent):
 
 		this.used = []
 		id = re.sub(r'[`~!@#$%^&*()\-_+=:}\[\]:"|;\'\\\\,.\/<>?]+', '_', id)
-		
+
 		# this.rootInstance = instance
 		this.id = this.title = id
 		this.type = BPVarTemp.typeNotSet
-		
+
 		# The type need to be defined dynamically on first cable connect
 
-	_value = None
-	def value(this, val=None):
-		if(val == None): return this._value
+	@property
+	def value(this):
+		return this._value
+
+	@value.setter
+	def value(this, val):
+		if(this._value == val): return
+
 		this._value = val
 		this.emit('value')
 

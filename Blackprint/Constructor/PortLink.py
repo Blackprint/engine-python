@@ -37,12 +37,11 @@ class PortLink(MutableMapping):
 
 		# This port must use values from connected output
 		if(port.source == 'input'):
-			cableLen = len(port.cables)
+			if(port._cache != None): return port._cache
 
+			cableLen = len(port.cables)
 			if(cableLen == 0):
 				return port.default
-
-			if(port._cache != None): return port._cache
 
 			# Flag current iface is requesting value to other iface
 			port.iface._requesting = True
@@ -62,7 +61,8 @@ class PortLink(MutableMapping):
 				output = cable.output
 
 				# Request the data first
-				output.iface.node.request(cable)
+				if(output.value == None):
+					output.iface.node.request(cable)
 
 				# print(f"\n1. {port.name} . {output.name} ({output.value})")
 
@@ -95,7 +95,8 @@ class PortLink(MutableMapping):
 				output = cable.output
 
 				# Request the data first
-				output.iface.node.request(cable)
+				if(output.value == None):
+					output.iface.node.request(cable)
 
 				# print(f"\n2. {port.name} . {output.name} ({output.value})")
 
@@ -124,12 +125,15 @@ class PortLink(MutableMapping):
 	def __setitem__(this, key, val):
 		port = this._ifacePort[key]
 
-		# setter (only for output port)
-		if(port.source == 'input'):
-			raise Exception("Can't set data to input port")
+		if(port == None):
+			raise Exception(f"Port {this._which} ('{key}') was not found on node with namespace '{this._iface.namespace}'")
 
+		# setter (only for output port)
 		if(port.iface.node.disablePorts or (not (port.splitted or port.allowResync) and port.value == val)):
 			return
+
+		if(port.source == 'input'):
+			raise Exception("Can't set data to input port")
 
 		if(val == None):
 			val = port.default

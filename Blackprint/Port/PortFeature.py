@@ -82,6 +82,9 @@ class Port:
 			'value': struct
 		}
 
+	# VirtualType is only for browser with Sketch library
+	def VirtualType():
+		raise Exception("VirtualType is only for browser with Sketch library")
 	
 	@staticmethod
 	def StructOf_split(port):

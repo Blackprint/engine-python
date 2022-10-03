@@ -33,7 +33,7 @@ class FnVarInput(Node):
 		iface = this.iface
 
 		# This will trigger the port to request from outside and assign to this node's port
-		this.output['Val'] = iface._parentFunc.node.input[iface.data['name']]
+		this.output['Val'] = iface._funcMain.node.input[iface.data['name']]
 
 @registerNode('BP/FnVar/Output')
 class FnVarOutput(Node):
@@ -54,11 +54,14 @@ class FnVarOutput(Node):
 		id = this.iface.data['name']
 		this.refOutput[id] = this.ref.Input["Val"]
 
+		# Also update the cache on the proxy node
+		this.iface._funcMain._proxyOutput.ref.IInput[id]._cache = this.ref.Input['Val']
+
 class BPFnVarInOut(Interface):
 	def imported(this, data):
 		if('name' not in data or data['name'] == ''): raise Exception("Parameter 'name' is required")
 		this.data['name'] = data['name']
-		this._parentFunc = this.node.instance._funcMain
+		this._funcMain = this.node.instance._funcMain
 
 
 @registerInterface('BPIC/BP/FnVar/Input')
@@ -69,10 +72,10 @@ class FnVarInputIface(BPFnVarInOut):
 
 	def imported(this, data):
 		BPFnVarInOut.imported(this, data)
-		ports = this._parentFunc.ref.IInput
+		ports = this._funcMain.ref.IInput
 		node = this.node
 
-		this._proxyIface = this._parentFunc._proxyInput.iface
+		this._proxyIface = this._funcMain._proxyInput.iface
 
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
@@ -82,6 +85,9 @@ class FnVarInputIface(BPFnVarInOut):
 
 			# Run when this node is being connected with other node
 			def onConnect(cable, port):
+				# Skip port with feature: ArrayOf
+				if(port.feature == Port.ArrayOf): return
+
 				iPort.onConnect = None
 				proxyIface.off(f"_add.{name}", this._waitPortInit)
 				this._waitPortInit = None
@@ -90,7 +96,7 @@ class FnVarInputIface(BPFnVarInOut):
 				node.deletePort('output', 'Val')
 
 				portName = PortName(name)
-				portType = getFnPortType(port, 'input', this._parentFunc, portName)
+				portType = getFnPortType(port, 'input', this._funcMain, portName)
 				newPort = node.createPort('output', 'Val', portType)
 				newPort._name = portName
 				newPort.connectPort(port)
@@ -103,6 +109,9 @@ class FnVarInputIface(BPFnVarInOut):
 
 			# Run when main node is the missing port
 			def _waitPortInit(port):
+				# Skip port with feature: ArrayOf
+				if(port.feature == Port.ArrayOf): return
+
 				iPort.onConnect = None
 				this._waitPortInit = None
 
@@ -113,7 +122,7 @@ class FnVarInputIface(BPFnVarInOut):
 
 				node.deletePort('output', 'Val')
 
-				portType = getFnPortType(port, 'input', this._parentFunc, port._name)
+				portType = getFnPortType(port, 'input', this._funcMain, port._name)
 				newPort = node.createPort('output', 'Val', portType)
 				this._addListener()
 
@@ -127,7 +136,7 @@ class FnVarInputIface(BPFnVarInOut):
 		else:
 			if('Val' not in this.output):
 				port = ports[name]
-				portType = getFnPortType(port, 'input', this._parentFunc, port._name)
+				portType = getFnPortType(port, 'input', this._funcMain, port._name)
 				node.createPort('output', 'Val', portType)
 
 			this._addListener()
@@ -145,11 +154,11 @@ class FnVarInputIface(BPFnVarInOut):
 		else:
 			def _listener(dat):
 				port = dat.port
-	
+
 				if(port.iface.node.routes.out != None):
 					Val = this.ref.IOutput['Val']
 					Val.value = port.value # Change value without trigger node.update
-	
+
 					list = Val.cables
 					for temp in list:
 						# Clear connected cable's cache
@@ -157,7 +166,6 @@ class FnVarInputIface(BPFnVarInOut):
 
 					return
 
-	
 				this.ref.Output['Val'] = port.value
 
 			this._listener = _listener
@@ -180,19 +188,22 @@ class FnVarOutputIface(BPFnVarInOut):
 
 	def imported(this, data):
 		BPFnVarInOut.imported(this, data)
-		ports = this._parentFunc.ref.IOutput
+		ports = this._funcMain.ref.IOutput
 		node = this.node
 
-		node.refOutput = this._parentFunc.ref.Output
+		node.refOutput = this._funcMain.ref.Output
 
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
 		if(name not in ports):
 			iPort = node.createPort('input', 'Val', Types.Any)
-			proxyIface = this._parentFunc._proxyOutput.iface
+			proxyIface = this._funcMain._proxyOutput.iface
 
 			# Run when this node is being connected with other node
 			def onConnect(cable, port):
+				# Skip port with feature: ArrayOf
+				if(port.feature == Port.ArrayOf): return
+
 				iPort.onConnect = None
 				proxyIface.off(f"_add.{name}", this._waitPortInit)
 				this._waitPortInit = None
@@ -201,7 +212,7 @@ class FnVarOutputIface(BPFnVarInOut):
 				node.deletePort('input', 'Val')
 
 				portName = PortName(name)
-				portType = getFnPortType(port, 'output', this._parentFunc, portName)
+				portType = getFnPortType(port, 'output', this._funcMain, portName)
 				newPort = node.createPort('input', 'Val', portType)
 				newPort._name = portName
 				newPort.connectPort(port)
@@ -213,6 +224,9 @@ class FnVarOutputIface(BPFnVarInOut):
 
 			# Run when main node is the missing port
 			def _waitPortInit(port):
+				# Skip port with feature: ArrayOf
+				if(port.feature == Port.ArrayOf): return
+
 				iPort.onConnect = None
 				this._waitPortInit = None
 
@@ -223,7 +237,7 @@ class FnVarOutputIface(BPFnVarInOut):
 
 				node.deletePort('input', 'Val')
 
-				portType = getFnPortType(port, 'output', this._parentFunc, port._name)
+				portType = getFnPortType(port, 'output', this._funcMain, port._name)
 				newPort = node.createPort('input', 'Val', portType)
 
 				for value in backup:
@@ -234,7 +248,7 @@ class FnVarOutputIface(BPFnVarInOut):
 
 		else:
 			port = ports[name]
-			portType = getFnPortType(port, 'output', this._parentFunc, port._name)
+			portType = getFnPortType(port, 'output', this._funcMain, port._name)
 			node.createPort('input', 'Val', portType)
 
 

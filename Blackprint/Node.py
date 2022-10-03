@@ -5,6 +5,7 @@ from .Constructor.References import References
 from .Constructor.PortLink import PortLink
 from .Interface import Interface
 from .Internal import Internal
+from .Nodes.Enums import Enums
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -14,17 +15,18 @@ class Node(CustomEvent):
 	output: PortLink = None
 	input: PortLink = None
 	disablePorts = False
+	partialUpdate = False
+	iface: Interface = None
+	routes: RoutePort = None
+	ref: References = None
+
+	_bpUpdating = False
+	_funcInstance = None
+	_contructed = True
 
 	def __init__(this, instance):
 		CustomEvent.__init__(this)
-
-		this.iface: Interface = None
 		this.instance: 'Engine' = instance
-		this.routes: RoutePort = None
-		this.ref: References = None
-
-		this._funcInstance = None
-		this._contructed = True
 
 	def setInterface(this, namespace='BP/default'):
 		if(this.iface != None):
@@ -76,6 +78,29 @@ class Node(CustomEvent):
 
 	def log(this, message):
 		this.instance._log({"iface": this.iface, "message": message})
+
+	def _bpUpdate(this):
+		thisIface = this.iface
+		isMainFuncNode = thisIface._enum == Enums.BPFnMain
+
+		if(not (isMainFuncNode and this.routes.out != None)):
+			this._bpUpdating = True
+			this.update(None)
+			this._bpUpdating = False
+			this.iface.emit('updated')
+
+		ref = this.instance.executionOrder
+		if(this.routes.out == None):
+			if(isMainFuncNode and thisIface.node.routes.out != None):
+				thisIface.node.routes.routeOut()
+				ref.next()
+			else: ref.next()
+		else:
+			if(not isMainFuncNode):
+				this.routes.routeOut()
+			else: thisIface._proxyInput.routes.routeOut()
+
+			ref.next()
 
 	# ToDo: remote-control PHP
 	def syncOut(this, id, data): pass
