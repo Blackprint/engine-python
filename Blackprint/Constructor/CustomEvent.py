@@ -27,7 +27,7 @@ class CustomEvent:
 	def once(this, eventName, func):
 		this.on(eventName, func, True)
 
-	async def onceAsync(eventName):
+	async def waitOnce(eventName):
 		raise Exception("This method is not implemented yet, feel free to create improvement for this engine.")
 
 	def off(this, eventName, func = None):
