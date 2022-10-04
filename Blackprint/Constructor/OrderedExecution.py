@@ -1,5 +1,6 @@
 from ..Port.PortFeature import Port as PortFeature
 from ..Nodes.Enums import Enums
+import traceback
 
 class OrderedExecution:
 	index = 0
@@ -96,5 +97,6 @@ class OrderedExecution:
 		except:
 			if(_proxyInput): _proxyInput._bpUpdating = False
 			this.clear()
+			traceback.print_exc()
 		finally:
 			if(this.stepMode): this.pause = False

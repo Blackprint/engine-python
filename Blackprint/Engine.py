@@ -251,7 +251,7 @@ class Engine(CustomEvent):
 
 		this._importing = False
 		# this.emit("json.imported", {appendMode: options.appendMode, nodes: inserted, raw: json})
-		Utils.runAsync(this.executionOrder.next())
+		await this.executionOrder.next()
 
 		return inserted
 

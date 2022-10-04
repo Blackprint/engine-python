@@ -105,7 +105,7 @@ class Port(CustomEvent):
 		# class PortLink already handle the linker
 
 	# Only for output port
-	def sync(this):
+	async def sync(this):
 		# Check all connected cables, if any node need to synchronize
 		cables = this.cables
 		thisNode = this._node
@@ -121,7 +121,7 @@ class Port(CustomEvent):
 		   and thisNode.iface._enum == Enums.BPFnMain
 		   and thisNode.iface.bpInstance.executionOrder.length != 0):
 			skipSync = True
-		
+
 		for cable in cables:
 			inp = cable.input
 			if(inp == None): continue
@@ -148,8 +148,8 @@ class Port(CustomEvent):
 
 			node = inpIface.node
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
-				Utils.runAsync(node._bpUpdate())
-		
+				await node._bpUpdate()
+
 		if(singlePortUpdate):
 			thisNode._bpUpdating = False
 			Utils.runAsync(thisNode.instance.executionOrder.next())

@@ -157,7 +157,7 @@ class PortLink(MutableMapping):
 		if(port._sync == False):
 			return
 
-		port.sync()
+		Utils.runAsync(port.sync())
 
 	def __delitem__(this, key):
 		# dict.__delitem__(this, key)
