@@ -76,6 +76,7 @@ class BPVariable(CustomEvent):
 		# this.rootInstance = instance
 		this.id = this.title = id
 		this.type = BPVarTemp.typeNotSet
+		this._value = None
 
 		# The type need to be defined dynamically on first cable connect
 
@@ -203,11 +204,11 @@ class IVarGet(BPVarGetSet):
 
 		if(temp.type == FunctionType):
 			this._eventListen = 'call'
-			def callback(): ref['Val']()
+			def callback(ev): ref['Val']()
 			this._onChanged = callback
 		else:
 			this._eventListen = 'value'
-			def callback(): ref['Val'] = temp._value
+			def callback(ev): ref['Val'] = temp._value
 			this._onChanged = callback
 
 		temp.on(this._eventListen, this._onChanged)
