@@ -33,7 +33,7 @@ class BPEnvSet(Node):
 
 		iface._enum = Enums.BPEnvSet
 
-	def update(this, cable):
+	async def update(this, cable):
 		Environment.set(this.iface.data['name'], this.input["Val"])
 
 class BPEnvGetSet(Interface):

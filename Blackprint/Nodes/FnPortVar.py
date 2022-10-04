@@ -50,7 +50,7 @@ class FnVarOutput(Node):
 		iface._enum = Enums.BPFnVarOutput
 		iface._dynamicPort = True # Port is initialized dynamically
 
-	def update(this, cable):
+	async def update(this, cable):
 		id = this.iface.data['name']
 		this.refOutput[id] = this.ref.Input["Val"]
 

@@ -53,12 +53,12 @@ class Cable:
 		input = this.input
 		input.emit('value', tempEv)
 		input.iface.emit('port.value', tempEv)
-		input.iface.node.update(this)
+		Utils.runAsync(input.iface.node.update(this))
 
 		node = input.iface.node
 		if(node.instance._importing):
 			node.instance.executionOrder.add(node)
-		else: node._bpUpdate()
+		else: Utils.runAsync(node._bpUpdate())
 
 	# For debugging
 	def _print(this):

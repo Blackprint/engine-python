@@ -87,7 +87,7 @@ class Engine(CustomEvent):
 		this.iface = {}
 		this.ref = {}
 
-	def importJSON(this, json, options: Dict={}):
+	async def importJSON(this, json, options: Dict={}):
 		if(isinstance(json, str)):
 			json = JSON.loads(json)
 
@@ -146,8 +146,14 @@ class Engine(CustomEvent):
 				iface = this.createNode(namespace, confOpt, nodes)
 				inserted[conf['i']] = iface # Don't add  as it's already reference
 
+				if('input' in conf):
+					reorderInputPort.append({
+						"iface": iface,
+						"config": conf,
+					})
+
 				# For custom function node
-				iface._BpFnInit()
+				await iface._BpFnInit()
 
 		# Create cable only from output and property
 		# > Important to be separated from above, so the cable can reference to loaded ifaces
@@ -204,7 +210,7 @@ class Engine(CustomEvent):
 									linkPortB = targetNode.node.routes
 
 								else: raise Exception(f"Node port not found for targetNode.title with name: {target['name']}")
-							
+
 							linkPortA.connectPort(linkPortB)
 
 							# print(f"\n{iface.title}.{linkPortA.name} . {targetNode.title}.{linkPortB.name}")
@@ -219,11 +225,10 @@ class Engine(CustomEvent):
 			for key, conf in cInput.items():
 				port = iface.input[key]
 				cables = port.cables
-				temp = []
+				temp = len(conf)*[None]
 
 				a = 0
 				for ref in conf:
-					a += 1
 					name = ref['name']
 					targetIface = inserted[ref['i'] + appendLength]
 
@@ -232,6 +237,8 @@ class Engine(CustomEvent):
 
 						temp[a] = cable
 						break
+
+					a += 1
 
 				for ref in temp:
 					if(ref == None): print(f"Some cable failed to be ordered for ({iface.title}: {key})")
@@ -242,9 +249,9 @@ class Engine(CustomEvent):
 		for val in nodes:
 			val.init()
 
-		this._importing = True
+		this._importing = False
 		# this.emit("json.imported", {appendMode: options.appendMode, nodes: inserted, raw: json})
-		this.executionOrder.next()
+		Utils.runAsync(this.executionOrder.next())
 
 		return inserted
 

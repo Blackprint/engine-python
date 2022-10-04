@@ -1,3 +1,4 @@
+import asyncio
 from ..Utils import Utils
 
 class CustomEvent:
@@ -27,8 +28,14 @@ class CustomEvent:
 	def once(this, eventName, func):
 		this.on(eventName, func, True)
 
-	async def waitOnce(eventName):
-		raise Exception("This method is not implemented yet, feel free to create improvement for this engine.")
+	def waitOnce(this, eventName):
+		loop = asyncio.get_running_loop()
+		fut = loop.create_future()
+
+		def func(ev): fut.set_result(ev)
+		this.on(eventName, func, True)
+
+		return fut
 
 	def off(this, eventName, func = None):
 		if(' ' in eventName):

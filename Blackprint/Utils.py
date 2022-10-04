@@ -1,3 +1,4 @@
+import asyncio
 from types import FunctionType
 from .Types import Types
 from .Port.PortFeature import Port
@@ -80,3 +81,9 @@ class Utils:
 			return list.index(item)
 		except ValueError:
 			return -1
+
+	_asyncTask = set()
+	def runAsync(corountine):
+		task = asyncio.create_task(corountine)
+		Utils._asyncTask.add(task)
+		task.add_done_callback(Utils._asyncTask.discard)

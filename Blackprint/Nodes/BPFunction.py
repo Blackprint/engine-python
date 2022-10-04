@@ -241,14 +241,14 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 	# @var FnMain
 	iface = None
 
-	def init(this):
-		if(not this.iface._importOnce): this.iface._BpFnInit()
+	# def init(this):
+	# 	if(not this.iface._importOnce): this.iface._BpFnInit()
 
 	def imported(this, data):
 		instance = this._funcInstance
 		instance.used.append(this.iface)
 
-	def update(this, cable):
+	async def update(this, cable):
 		iface = this.iface._proxyInput.iface
 		Output = iface.node.output
 
@@ -320,7 +320,7 @@ class NodeOutput(Node):
 		for key, value in output.items():
 			this.createPort('input', key, value)
 
-	def update(this, cable):
+	async def update(this, cable):
 		iface = this.iface._funcMain
 		Output = iface.node.output
 
@@ -345,7 +345,7 @@ class FnMain(Interface):
 	# input = {} # Port template
 	# output = {} # Port template
 
-	def _BpFnInit(this):
+	async def _BpFnInit(this):
 		if(this._importOnce):
 			raise Exception("Can't import function more than once")
 
@@ -368,7 +368,7 @@ class FnMain(Interface):
 		bpFunction.refreshPrivateVars(newInstance)
 
 		swallowCopy = bpFunction.structure.copy()
-		this.bpInstance.importJSON(swallowCopy)
+		await this.bpInstance.importJSON(swallowCopy)
 
 		# Init port switches
 		if(this._portSw_ != None):

@@ -25,7 +25,7 @@ class UpdateTest(Blackprint.Node):
 		
 		# iface.on('port.value', onValue)
 
-	def update(this, cable):
+	async def update(this, cable):
 		# index = this.iface.id or this.instance.ifaceList.index(this.iface)
 		# print("UpdateTest "+index+"> Updating ports")
 

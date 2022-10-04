@@ -6,6 +6,7 @@ from ..Constructor.Cable import Cable
 from ..Port.PortFeature import Port as PortFeature
 from ..Types import Types
 from ..Nodes.Enums import Enums
+from ..Utils import Utils
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ class Port(CustomEvent):
 				def_(this)
 
 				if(this.iface._enum != Enums.BPFnMain):
-					this.iface.node.routes.routeOut()
+					Utils.runAsync(this.iface.node.routes.routeOut())
 
 			this.default = callb
 
@@ -147,11 +148,11 @@ class Port(CustomEvent):
 
 			node = inpIface.node
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
-				node._bpUpdate()
+				Utils.runAsync(node._bpUpdate())
 		
 		if(singlePortUpdate):
 			thisNode._bpUpdating = False
-			thisNode.instance.executionOrder.next()
+			Utils.runAsync(thisNode.instance.executionOrder.next())
 
 	def disableCables(this, enable=False):
 		cables = this.cables
@@ -376,6 +377,6 @@ def createCallableRoutePort(port):
 		cable = port.cables[0]
 		if(cable == None): return
 
-		cable.input.routeIn()
+		Utils.runAsync(cable.input.routeIn())
 
 	return callable

@@ -74,7 +74,7 @@ class Interface(CustomEvent):
 				port = inputs[key]
 				port.default = val
 
-	def _BpFnInit(this):
+	async def _BpFnInit(this):
 		pass
 
 	def init(this):

@@ -38,7 +38,7 @@ class Logger(Blackprint.Node):
 
 		this.iface.input['Any'].on('value', onAnyValue)
 
-	def update(this, cable):
+	async def update(this, cable):
 		# Let's take all data from all connected nodes
 		# Instead showing new single data-> val
 		this.refreshLogger(this.input['Any'])

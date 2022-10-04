@@ -1,4 +1,4 @@
-from Blackprint.RoutePort import RoutePort
+from .RoutePort import RoutePort
 from .Constructor.CustomEvent import CustomEvent
 from .Constructor.Port import Port as PortClass
 from .Constructor.References import References
@@ -79,36 +79,36 @@ class Node(CustomEvent):
 	def log(this, message):
 		this.instance._log({"iface": this.iface, "message": message})
 
-	def _bpUpdate(this):
+	async def _bpUpdate(this):
 		thisIface = this.iface
 		isMainFuncNode = thisIface._enum == Enums.BPFnMain
 
 		if(not (isMainFuncNode and this.routes.out != None)):
 			this._bpUpdating = True
-			this.update(None)
+			await this.update(None)
 			this._bpUpdating = False
 			this.iface.emit('updated')
 
 		ref = this.instance.executionOrder
 		if(this.routes.out == None):
 			if(isMainFuncNode and thisIface.node.routes.out != None):
-				thisIface.node.routes.routeOut()
-				ref.next()
-			else: ref.next()
+				await thisIface.node.routes.routeOut()
+				await ref.next()
+			else: await ref.next()
 		else:
 			if(not isMainFuncNode):
-				this.routes.routeOut()
-			else: thisIface._proxyInput.routes.routeOut()
+				await this.routes.routeOut()
+			else: await thisIface._proxyInput.routes.routeOut()
 
-			ref.next()
+			await ref.next()
 
 	# ToDo: remote-control PHP
 	def syncOut(this, id, data): pass
 
 	# To be overriden by module developer
+	def init(this): pass
 	def imported(this, data): pass
-	def update(this, cable): pass
+	async def update(this, cable): pass
 	def request(this, cable): pass
 	def destroy(this): pass
-	def init(this): pass
 	def syncIn(this, id, data): pass

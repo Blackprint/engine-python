@@ -44,7 +44,6 @@ class InputIFaceData:
 	def value(this, val):
 		this._data['value'] = val
 		this._iface.changed(val)
-		this._iface.node.routes.routeOut()
 
 @Blackprint.registerInterface('BPIC/Example/Input')
 class InputIFace(Blackprint.Interface):

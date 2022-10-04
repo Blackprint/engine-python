@@ -1,4 +1,4 @@
-from ..Port.PortFeature import PortFeature
+from ..Port.PortFeature import Port as PortFeature
 from ..Nodes.Enums import Enums
 
 class OrderedExecution:
@@ -7,7 +7,6 @@ class OrderedExecution:
 	initialSize = 30
 	pause = False
 	stepMode = False
-
 
 	def __init__(this, size=30):
 		this.initialSize = size
@@ -32,25 +31,24 @@ class OrderedExecution:
 		if(i >= this.initialSize or this.length >= this.initialSize):
 			raise Exception("Execution order limit was exceeded")
 
-		this.length += 1
 		this.list[this.length] = node
+		this.length += 1
 
 	def _next(this):
 		if(this.index >= this.length):
 			return
 
 		i = this.index
-		this.index += 1
-		temp = this.list[this.index]
+		temp = this.list[i]
 		this.list[i] = None
+		this.index += 1
 
 		if(this.index >= this.length):
 			this.index = this.length = 0
 
 		return temp
 
-	# Can be async function if the programming language support it
-	def next(this):
+	async def next(this):
 		if(this.pause): return
 		if(this.stepMode): this.pause = True
 
@@ -83,21 +81,18 @@ class OrderedExecution:
 									if(not cable._hasUpdate): continue
 									cable._hasUpdate = False
 	
-									# Make this async if possible
-									next.update(cable)
+									await next.update(cable)
 
 					elif(inp._hasUpdateCable != None):
 						cable = inp._hasUpdateCable
 						inp._hasUpdateCable = None
 	
-						# Make this async if possible
-						if(not skipUpdate): next.update(cable)
+						if(not skipUpdate): await next.update(cable)
 
 			next._bpUpdating = False
 			if(_proxyInput): _proxyInput._bpUpdating = False
 
-			# Make this async if possible
-			if(not next.partialUpdate and not skipUpdate): next._bpUpdate()
+			if(not next.partialUpdate and not skipUpdate): await next._bpUpdate()
 		except:
 			if(_proxyInput): _proxyInput._bpUpdating = False
 			this.clear()
