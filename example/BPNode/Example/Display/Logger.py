@@ -1,6 +1,5 @@
 import json
 import Blackprint
-import traceback
 from ...utils import colorLog
 
 @Blackprint.registerNode('Example/Display/Logger')
@@ -39,7 +38,7 @@ class Logger(Blackprint.Node):
 
 		this.iface.input['Any'].on('value', onAnyValue)
 
-	async def update(this, cable):
+	def update(this, cable):
 		# Let's take all data from all connected nodes
 		# Instead showing new single data-> val
 		this.refreshLogger(this.input['Any'])
@@ -60,6 +59,5 @@ class LoggerIFace(Blackprint.Interface):
 	@log.setter
 	def log(this, val):
 		this._log = val
-		colorLog("Logger Data ("+(this.id or '')+")", val)
-		# traceback.print_stack()
+		colorLog("Logger ("+(this.id or '')+") Data:", val)
 		this.node.syncOut('log', val)

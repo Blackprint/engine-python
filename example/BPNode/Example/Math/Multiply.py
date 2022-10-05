@@ -41,7 +41,7 @@ class Multiply(Blackprint.Node):
 
 	# When any output value from other node are updated
 	# Let's immediately change current node result
-	async def update(this, cable):
+	def update(this, cable):
 		if(this.iface._inactive_): return
 		this.output['Result'] = this.multiply()
 
