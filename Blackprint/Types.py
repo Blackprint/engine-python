@@ -1,3 +1,3 @@
 class Types:
-	Any = ()
-	Route = ()
+	Any = object()
+	Route = object()

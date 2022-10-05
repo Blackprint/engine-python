@@ -1,3 +1,4 @@
+from types import FunctionType
 from typing import Dict
 
 from ..Internal import EvPortSelf
@@ -31,9 +32,6 @@ class PortLink(MutableMapping):
 
 	def __getitem__(this, key):
 		port = this._ifacePort[key]
-
-		if(port.feature == Port.Trigger):
-			return port.default
 
 		# This port must use values from connected output
 		if(port.source == 'input'):
@@ -115,6 +113,7 @@ class PortLink(MutableMapping):
 
 			port._cache = data
 			return data
+		# else: output ports
 
 		# Callable port (for output ports)
 		if(port._callAll != None):
@@ -157,7 +156,7 @@ class PortLink(MutableMapping):
 		if(port._sync == False):
 			return
 
-		Utils.runAsync(port.sync())
+		port.sync()
 
 	def __delitem__(this, key):
 		# dict.__delitem__(this, key)

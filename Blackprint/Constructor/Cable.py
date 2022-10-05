@@ -108,9 +108,7 @@ class Cable:
 				owner.iface.node.instance.emit('cable.disconnect', temp)
 
 				alreadyEmitToInstance = True
-
 			else:
-				nul = None
 				temp = EvPortValue(owner, None, this)
 				owner.iface.emit('cable.cancel', temp)
 				# owner.iface.node.instance.emit('cable.cancel', temp)
