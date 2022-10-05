@@ -13,7 +13,7 @@ class Temp:
 	list = ['input', 'output'] # static property
 
 class Interface(CustomEvent):
-	id: str # Named ID
+	id: str = None # Named ID
 	i: int # Generated Index
 	title = 'No title'
 	interface = 'BP/default'
@@ -74,7 +74,7 @@ class Interface(CustomEvent):
 				port = inputs[key]
 				port.default = val
 
-	async def _BpFnInit(this):
+	def _BpFnInit(this):
 		pass
 
 	def init(this):

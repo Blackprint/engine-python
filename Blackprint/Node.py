@@ -1,3 +1,4 @@
+import asyncio
 from .RoutePort import RoutePort
 from .Constructor.CustomEvent import CustomEvent
 from .Constructor.Port import Port as PortClass
@@ -79,28 +80,30 @@ class Node(CustomEvent):
 	def log(this, message):
 		this.instance._log({"iface": this.iface, "message": message})
 
-	async def _bpUpdate(this):
+	def _bpUpdate(this):
 		thisIface = this.iface
 		isMainFuncNode = thisIface._enum == Enums.BPFnMain
 
 		if(not (isMainFuncNode and this.routes.out != None)):
 			this._bpUpdating = True
-			await this.update(None)
+			cour = this.update(None)
+			if(asyncio.iscoroutine(cour)): asyncio.run(cour)
 			this._bpUpdating = False
+
 			this.iface.emit('updated')
 
 		ref = this.instance.executionOrder
 		if(this.routes.out == None):
 			if(isMainFuncNode and thisIface.node.routes.out != None):
-				await thisIface.node.routes.routeOut()
-				await ref.next()
-			else: await ref.next()
+				thisIface.node.routes.routeOut()
+				ref.next()
+			else: ref.next()
 		else:
 			if(not isMainFuncNode):
-				await this.routes.routeOut()
-			else: await thisIface._proxyInput.routes.routeOut()
+				this.routes.routeOut()
+			else: thisIface._proxyInput.routes.routeOut()
 
-			await ref.next()
+			ref.next()
 
 	# ToDo: remote-control PHP
 	def syncOut(this, id, data): pass
@@ -108,7 +111,7 @@ class Node(CustomEvent):
 	# To be overriden by module developer
 	def init(this): pass
 	def imported(this, data): pass
-	async def update(this, cable): pass
+	def update(this, cable): pass
 	def request(this, cable): pass
 	def destroy(this): pass
 	def syncIn(this, id, data): pass

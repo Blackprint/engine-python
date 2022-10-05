@@ -248,7 +248,7 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 		instance = this._funcInstance
 		instance.used.append(this.iface)
 
-	async def update(this, cable):
+	def update(this, cable):
 		iface = this.iface._proxyInput.iface
 		Output = iface.node.output
 
@@ -320,7 +320,7 @@ class NodeOutput(Node):
 		for key, value in output.items():
 			this.createPort('input', key, value)
 
-	async def update(this, cable):
+	def update(this, cable):
 		iface = this.iface._funcMain
 		Output = iface.node.output
 
@@ -345,7 +345,7 @@ class FnMain(Interface):
 	# input = {} # Port template
 	# output = {} # Port template
 
-	async def _BpFnInit(this):
+	def _BpFnInit(this):
 		if(this._importOnce):
 			raise Exception("Can't import function more than once")
 
@@ -368,7 +368,7 @@ class FnMain(Interface):
 		bpFunction.refreshPrivateVars(newInstance)
 
 		swallowCopy = bpFunction.structure.copy()
-		await this.bpInstance.importJSON(swallowCopy)
+		this.bpInstance.importJSON(swallowCopy)
 
 		# Init port switches
 		if(this._portSw_ != None):
@@ -413,11 +413,12 @@ class BPFnInOut(Interface):
 
 		reff = None
 		if(port.feature == Port.Trigger):
-			reff = {'node': None, 'port': None, "t":0}
+			reff = {'node': None, 'port': None}
 			def callback(port):
 				reff['node'].output[reff['port'].name]()
 
 			portType = Port.Trigger(callback)
+		# Skip port with feature: ArrayOf
 		elif(port.feature == Port.ArrayOf):
 			portType = port.type
 		else: portType = port._getPortFeature() if port.feature != None else port.type
@@ -447,9 +448,7 @@ class BPFnInOut(Interface):
 			nodeB = this._funcMain.node
 			nodeB._funcInstance.output[name] = portType
 
-		if(port.feature == Port.Trigger):
-			outputPort = nodeB.createPort('output', name, FunctionType)
-		else: outputPort = nodeB.createPort('output', name, portType)
+		outputPort = nodeB.createPort('output', name, portType)
 
 		if(portType == FunctionType):
 			inputPort = nodeA.createPort('input', name, Port.Trigger(outputPort._callAll))

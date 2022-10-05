@@ -1,3 +1,4 @@
+import asyncio
 from ..Port.PortFeature import Port as PortFeature
 from ..Nodes.Enums import Enums
 import traceback
@@ -8,6 +9,7 @@ class OrderedExecution:
 	initialSize = 30
 	pause = False
 	stepMode = False
+	_processing = False
 
 	def __init__(this, size=30):
 		this.initialSize = size
@@ -26,7 +28,11 @@ class OrderedExecution:
 		this.length = this.index = 0
 
 	def add(this, node):
-		if(this.isPending(node)): return
+		if(this.isPending(node)):
+			# print("pending "+node.iface.title)
+			return
+		
+		# print(f"add {node.iface.title} {node.iface.id}")
 
 		i = this.index + 1
 		if(i >= this.initialSize or this.length >= this.initialSize):
@@ -49,12 +55,17 @@ class OrderedExecution:
 
 		return temp
 
-	async def next(this):
+	def next(this):
+		# asyncio.sleep(0)
+
+		if(this._processing): return
 		if(this.pause): return
 		if(this.stepMode): this.pause = True
 
 		next = this._next() # next: node
 		if(next == None): return
+
+		this._processing = True
 
 		_proxyInput = None
 		nextIface = next.iface
@@ -67,6 +78,8 @@ class OrderedExecution:
 		if(nextIface._enum == Enums.BPFnMain):
 			_proxyInput = nextIface._proxyInput
 			_proxyInput._bpUpdating = True
+
+		# print(f"run {next.iface.title} {next.iface.id}")
 
 		try:
 			if(next.partialUpdate):
@@ -82,21 +95,26 @@ class OrderedExecution:
 									if(not cable._hasUpdate): continue
 									cable._hasUpdate = False
 	
-									await next.update(cable)
+									cour = next.update(cable)
+									if(asyncio.iscoroutine(cour)): asyncio.run(cour)
 
 					elif(inp._hasUpdateCable != None):
 						cable = inp._hasUpdateCable
 						inp._hasUpdateCable = None
 	
-						if(not skipUpdate): await next.update(cable)
+						if(not skipUpdate):
+							cour = next.update(cable)
+							if(asyncio.iscoroutine(cour)): asyncio.run(cour)
 
 			next._bpUpdating = False
 			if(_proxyInput): _proxyInput._bpUpdating = False
 
-			if(not next.partialUpdate and not skipUpdate): await next._bpUpdate()
+			if(not next.partialUpdate and not skipUpdate): next._bpUpdate()
 		except:
 			if(_proxyInput): _proxyInput._bpUpdating = False
 			this.clear()
 			traceback.print_exc()
-		finally:
-			if(this.stepMode): this.pause = False
+
+		if(this.stepMode): this.pause = False
+		this._processing = False
+		this.next()

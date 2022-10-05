@@ -56,9 +56,10 @@ class Port(CustomEvent):
 				def_(this)
 
 				if(this.iface._enum != Enums.BPFnMain):
-					Utils.runAsync(this.iface.node.routes.routeOut())
+					this.iface.node.routes.routeOut()
 
-			this.default = callb
+			this.default_ = callb
+			this.default = lambda: Utils.runAsync(callb())
 
 		elif(feature == PortFeature.StructOf):
 			this.struct = def_
@@ -105,7 +106,7 @@ class Port(CustomEvent):
 		# class PortLink already handle the linker
 
 	# Only for output port
-	async def sync(this):
+	def sync(this):
 		# Check all connected cables, if any node need to synchronize
 		cables = this.cables
 		thisNode = this._node
@@ -116,7 +117,7 @@ class Port(CustomEvent):
 		if(not thisNode._bpUpdating):
 			singlePortUpdate = True
 			thisNode._bpUpdating = True
-		
+
 		if(thisNode.routes.out != None
 		   and thisNode.iface._enum == Enums.BPFnMain
 		   and thisNode.iface.bpInstance.executionOrder.length != 0):
@@ -126,7 +127,7 @@ class Port(CustomEvent):
 			inp = cable.input
 			if(inp == None): continue
 			inp._cache = None
-			
+
 			inpIface = inp.iface
 			temp = EvPortValue(inp, this, cable)
 			inp.emit('value', temp)
@@ -148,7 +149,7 @@ class Port(CustomEvent):
 
 			node = inpIface.node
 			if(inpIface._requesting == False and len(node.routes.inp) == 0):
-				await node._bpUpdate()
+				Utils.runAsync(node._bpUpdate())
 
 		if(singlePortUpdate):
 			thisNode._bpUpdating = False
@@ -352,9 +353,7 @@ class Port(CustomEvent):
 		return this.connectCable(cable)
 
 def createCallablePort(port):
-	def callable():
-		if(port.iface.node.disablePorts): return
-
+	def loop():
 		cables = port.cables
 		for cable in cables:
 			target = cable.input
@@ -363,9 +362,13 @@ def createCallablePort(port):
 
 			if(target._name != None):
 				target.iface._funcMain.node.output[target._name.name]()
-			else: target.iface.input[target.name].default()
+			else: target.iface.input[target.name].default_()
 
 		port.emit('call')
+
+	def callable():
+		if(port.iface.node.disablePorts): return
+		Utils.runAsync(loop())
 
 	return callable
 
@@ -377,6 +380,6 @@ def createCallableRoutePort(port):
 		cable = port.cables[0]
 		if(cable == None): return
 
-		Utils.runAsync(cable.input.routeIn())
+		cable.input.routeIn()
 
 	return callable

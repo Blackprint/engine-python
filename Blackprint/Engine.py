@@ -1,3 +1,4 @@
+import asyncio
 from .Nodes.Enums import Enums
 from .Nodes.BPFunction import FnMain, BPFunction
 from .Nodes.BPVariable import VarScope, BPVariable
@@ -87,7 +88,7 @@ class Engine(CustomEvent):
 		this.iface = {}
 		this.ref = {}
 
-	async def importJSON(this, json, options: Dict={}):
+	def importJSON(this, json, options: Dict={}):
 		if(isinstance(json, str)):
 			json = JSON.loads(json)
 
@@ -153,7 +154,7 @@ class Engine(CustomEvent):
 					})
 
 				# For custom function node
-				await iface._BpFnInit()
+				iface._BpFnInit()
 
 		# Create cable only from output and property
 		# > Important to be separated from above, so the cable can reference to loaded ifaces
@@ -251,7 +252,7 @@ class Engine(CustomEvent):
 
 		this._importing = False
 		# this.emit("json.imported", {appendMode: options.appendMode, nodes: inserted, raw: json})
-		await this.executionOrder.next()
+		this.executionOrder.next()
 
 		return inserted
 
@@ -269,13 +270,6 @@ class Engine(CustomEvent):
 			return targetIface.input[target['name']]
 		else: return targetIface.output[target['name']]
 
-	def getNode(this, id):
-		ifaces = this.ifaceList
-
-		for val in ifaces:
-			if(val.id == id or val.i == id):
-				return val.node
-
 	def getNodes(this, namespace):
 		ifaces = this.ifaceList
 		got = []
@@ -286,7 +280,6 @@ class Engine(CustomEvent):
 
 		return got
 
-	# ToDo: sync with JS, when creating function node this still broken
 	def createNode(this, namespace, options=None, nodes=None):
 		func = Internal.nodes.get(namespace)
 

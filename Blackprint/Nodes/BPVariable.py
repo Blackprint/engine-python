@@ -35,7 +35,7 @@ class VarSet(Node):
 		iface._enum = Enums.BPVarSet
 		iface._dynamicPort = True # Port is initialized dynamically
 
-	async def update(this, cable):
+	def update(this, cable):
 		this.iface._bpVarRef.value = this.input['Val']
 
 

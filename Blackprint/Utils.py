@@ -84,6 +84,8 @@ class Utils:
 
 	_asyncTask = set()
 	def runAsync(corountine):
+		return
+
 		task = asyncio.create_task(corountine)
 		Utils._asyncTask.add(task)
 		task.add_done_callback(Utils._asyncTask.discard)
