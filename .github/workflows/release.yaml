@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: "Set this to dryRun if you didn't plan to publish the engine"
+        required: true
+        default: 'dryRun'
+  # release:
+    # This specifies that the build will be triggered when we publish a release
+    # types: [published]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      # - name: ⚙ Set up Python 3.10
+      #   uses: actions/setup-python@v3
+      #   with:
+      #     python-version: "3.10"
+
+      # - name: 🔥 Run unit tests
+      #   run: py ./tests/entry.py
+
+      - name: 📦 Test Publish to PyPI
+        if: github.event.inputs.engine == 'dryRun'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+
+      - name: 📦 Publish to PyPI
+        if: github.event.inputs.engine != 'dryRun'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}

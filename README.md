@@ -94,15 +94,15 @@ class HelloIFace(Blackprint.Interfaces):
 class MyData:
     # Constructor promotion, iface as private MyData property
     def __init__(this, iface):
-		this._iface = iface
+        this._iface = iface
 
     _value = 123
 
-	@property
+    @property
     def value();
         return this._value
 
-	@value.setter
+    @value.setter
     def value(val);
         this._value = val
         this._iface.recalculate() # Call recalculate() on HelloIFace
