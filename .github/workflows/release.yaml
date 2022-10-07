@@ -21,10 +21,16 @@ jobs:
         with:
           submodules: true
 
-      # - name: ⚙ Set up Python 3.10
-      #   uses: actions/setup-python@v3
-      #   with:
-      #     python-version: "3.10"
+      - name: ⚙ Set up Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: ⚙ Install dependencies
+        run: python -m pip install build wheel twine
+
+      - name: 🛠 Build module
+        run: python -m build --wheel
 
       # - name: 🔥 Run unit tests
       #   run: py ./tests/entry.py
