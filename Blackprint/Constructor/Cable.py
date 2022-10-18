@@ -94,6 +94,7 @@ class Cable:
 
 		if(this.input != None):
 			this.input._cache = None
+			this.input._hasUpdateCable = None
 
 		# Remove from cable owner
 		if(owner and (not which or owner == which)):

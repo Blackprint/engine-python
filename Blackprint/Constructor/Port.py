@@ -25,6 +25,7 @@ class Port(CustomEvent):
 	splitted = False
 	struct = None
 	allowResync = False # Retrigger connected node's .update when the output value is similar
+	isRoute = False
 
 	_sync = True
 	_ghost = False
@@ -134,10 +135,11 @@ class Port(CustomEvent):
 			inpIface.emit('port.value', temp)
 
 			if(skipSync == False and thisNode._bpUpdating):
-				if(inp.feature == PortFeature.ArrayOf):
-					inp._hasUpdate = True
-					cable._hasUpdate = True
-				else: inp._hasUpdateCable = cable
+				if(inpIface.node.partialUpdate):
+					if(inp.feature == PortFeature.ArrayOf):
+						inp._hasUpdate = True
+						cable._hasUpdate = True
+					else: inp._hasUpdateCable = cable
 
 				if(inpIface._requesting == False):
 					instance.executionOrder.add(inp._node)
