@@ -98,16 +98,16 @@ class PortLink(MutableMapping):
 
 				# print(f"\n2. {port.name} . {output.name} ({output.value})")
 
-				finalVal = output.value
-				if finalVal == None:
-					finalVal = port.default
-
 				if(isNotArrayPort):
+					finalVal = output.value
+					if finalVal == None:
+						finalVal = port.default
+
 					port.iface._requesting = False
 					port._cache = finalVal
 					return port._cache
 
-				data.append(finalVal)
+				data.append(output.value)
 
 			port.iface._requesting = False
 

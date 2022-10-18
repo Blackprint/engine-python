@@ -10,6 +10,7 @@ from .Interface import Temp, Interface
 from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
 from .Constructor.OrderedExecution import OrderedExecution
+from .Constructor.Cable import Cable
 from typing import Dict, List
 import json as JSON
 
@@ -164,7 +165,7 @@ class Engine(CustomEvent):
 				iface = inserted[ifaceJSON['i']]
 
 				if('route' in ifaceJSON):
-					iface.node.routes.routeTo(inserted[ifaceJSON['route']['i']])
+					iface.node.routes.routeTo(inserted[ifaceJSON['route']['i'] + appendLength])
 
 				# If have output connection
 				if('output' in ifaceJSON):
@@ -192,7 +193,16 @@ class Engine(CustomEvent):
 						# Current output's available targets
 						for target in ports:
 							target['i'] += appendLength
-							targetNode = inserted[target['i']]
+							targetNode = inserted[target['i']] # iface
+
+							if(linkPortA.isRoute):
+								cable = Cable(linkPortA, None)
+								cable.isRoute = True
+								cable.output = linkPortA
+								linkPortA.cables.append(cable)
+
+								targetNode.node.routes.connectCable(cable)
+								continue
 
 							# output can only meet input port
 							linkPortB = targetNode.input.get(target['name'])
