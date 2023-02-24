@@ -217,7 +217,7 @@ class IVarGet(BPVarGetSet):
 		this.title = name.replace('/', ' / ')
 
 		this._bpVarRef = varRef
-		if(varRef.type == Types.Slot): return varRef
+		if(varRef.type == Types.Slot): return
 
 		this._reinitPort()
 
@@ -262,7 +262,7 @@ class IVarSet(BPVarGetSet):
 		this.title = name.replace('/', ' / ')
 
 		this._bpVarRef = varRef
-		if(varRef.type == Types.Slot): return varRef
+		if(varRef.type == Types.Slot): return
 
 		this._reinitPort()
 

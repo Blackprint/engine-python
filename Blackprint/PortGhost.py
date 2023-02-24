@@ -21,8 +21,8 @@ class fakeIface:
 	node = None
 	emit = None
 	_iface = None
-	input = []
-	output = []
+	input = {}
+	output = {}
 	def __init__(this):
 		this.node = fakeNode()
 	def emit(this, a, b):

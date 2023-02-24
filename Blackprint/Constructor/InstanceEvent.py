@@ -47,7 +47,7 @@ class InstanceEvents(CustomEvent):
 				return
 
 			# Delete port that not exist or different type first
-			isEmitPort = target == True if 'input' else False
+			isEmitPort = True if target == 'input' else False
 			for name, val in ports.items():
 				if(isEmitPort):
 					isEmitPort = False

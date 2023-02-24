@@ -195,7 +195,7 @@ class PortLink(MutableMapping):
 		if(portName == ''):
 			raise Exception("Port name can't be empty")
 
-		if(this._which == 'output' and (isinstance(val, dict) and val['feature'] != None)):
+		if(this._which == 'output' and (isinstance(val, dict) and 'feature' in val)):
 			if(val['feature'] == Port.Union):
 				val = Types.Any
 			elif(val['feature'] == Port.Trigger):

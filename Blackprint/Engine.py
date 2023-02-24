@@ -26,6 +26,9 @@ class Engine(CustomEvent):
 		this.throwOnError = True
 		this._settings = {}
 
+		# Private or function node's instance only
+		this.sharedVariables = None
+
 		this.variables = {} # { category => BPVariable{ name, value, type }, category => { category } }
 		this.functions = {} # { category => BPFunction{ name, variables, input, output, used: [], node, description }, category => { category } }
 		this.ref = {} # { id => Port references }
@@ -115,11 +118,11 @@ class Engine(CustomEvent):
 
 		this._importing = True
 
-		if(options['clean'] != False and not('appendMode' in options)):
+		if(options['clean'] != False and not(options['appendMode'])):
 			this.clearNodes()
-			this.functions = []
-			this.variables = []
-			this.events.list = []
+			this.functions = {}
+			this.variables = {}
+			this.events.list = {}
 		elif(not options['appendMode']): this.clearNodes()
 
 		# Do we need this?
@@ -395,8 +398,8 @@ class Engine(CustomEvent):
 		if(nodes != None):
 			nodes.append(node)
 		else:
-			iface.init()
 			node.init()
+			iface.init()
 
 		return iface
 

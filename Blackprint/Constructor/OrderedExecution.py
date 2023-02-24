@@ -85,6 +85,8 @@ class OrderedExecution:
 		if(this.index >= this.length):
 			return
 
+		if(this.stepMode): this._tCable.remove(temp)
+
 		i = this.index
 		temp = this.list[i]
 		this.list[i] = None
@@ -106,8 +108,8 @@ class OrderedExecution:
 
 	def _addStepPending(this, cable, triggerSource):
 		# 0 = execution order, 1 = route, 2 = trigger port, 3 = request
-		if(triggerSource == 1 and not cable in this._pRoute): this._pRoute.append(cable)
-		if(triggerSource == 2 and not cable in this._pTrigger): this._pTrigger.append(cable)
+		if(triggerSource == 1 and cable not in this._pRoute): this._pRoute.append(cable)
+		if(triggerSource == 2 and cable not in this._pTrigger): this._pTrigger.append(cable)
 		if(triggerSource == 3):
 			hasCable = False
 			list = this._pRequest

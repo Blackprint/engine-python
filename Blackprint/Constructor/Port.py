@@ -161,7 +161,6 @@ class Port(CustomEvent):
 				this.isRoute = True
 				this.iface.node.routes.disableOut = True
 
-			# return lambda: Utils.runAsync(this._callAll())
 			return lambda: this._callAll()
 
 		# "var prepare = " is in PortLink.php (offsetGet)
@@ -206,7 +205,7 @@ class Port(CustomEvent):
 						cable._hasUpdate = True
 					else: inp._hasUpdateCable = cable
 
-				if(nextUpdate == False):
+				if(nextUpdate):
 					instance.executionOrder.add(inp._node, cable)
 
 			# Skip sync if the node has route cable
@@ -296,10 +295,10 @@ class Port(CustomEvent):
 					clazz = type_['type']
 				else: clazz = type_
 
-				if(not (issubclass(portType, clazz))):
+				if(not issubclass(portType, clazz)):
 					raise Exception(f"The target port's connection of this port is not instance of type that will be assigned: {portType} is not instance of {clazz}")
 
-		if(isinstance(type_, dict) and type_['feature'] != None):
+		if(isinstance(type_, dict) and 'feature' in type_):
 			if(this.source == 'output'):
 				if(type_['feature'] == PortFeature.Union):
 					type_ = Types.Any

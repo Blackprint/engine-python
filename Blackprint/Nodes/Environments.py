@@ -57,7 +57,7 @@ class BPEnvGetSet(Interface):
 			if(this._enum == Enums.BPEnvGet and 'allowGet' in rules):
 				Val = this.output['Val']
 				def callback(cable, targetPort):
-					if(targetPort.iface.namespace in rules['allowGet']):
+					if(targetPort.iface.namespace not in rules['allowGet']):
 						Val._cableConnectError('cable.rule.disallowed', {
 							"cable": cable,
 							"port": Val,
@@ -70,7 +70,7 @@ class BPEnvGetSet(Interface):
 			elif(this._enum == Enums.BPEnvSet and 'allowSet' in rules):
 				Val = this.input['Val']
 				def callback(cable, targetPort):
-					if(targetPort.iface.namespace in rules['allowSet']):
+					if(targetPort.iface.namespace not in rules['allowSet']):
 						Val._cableConnectError('cable.rule.disallowed', {
 							"cable": cable,
 							"port": Val,

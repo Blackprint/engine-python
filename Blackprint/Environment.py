@@ -46,7 +46,7 @@ class Environment:
 	# options = {allowGet: {}, allowSet: {}}
 	@staticmethod
 	def rule(name, options):
-		if(not name in Environment.map):
+		if(name not in Environment.map):
 			raise Exception(f"'{name}' was not found on Blackprint.Environment, maybe it haven't been added or imported")
 
 		if(name in Environment._rules):

@@ -39,7 +39,7 @@ class BPEventListen(Node):
 	def initPorts(this, data): this.iface.initPorts(data)
 	def resetLimit(this):
 		limit = this.input['Limit']
-		this._limit = limit == -1 if 0 else limit
+		this._limit = -1 if limit == 0 else limit
 
 		if(this._off):
 			iface = this.iface
