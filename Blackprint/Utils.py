@@ -11,7 +11,7 @@ class Utils:
 		last = path.pop()
 		for key in path:
 			if(key not in obj):
-				obj[key] = []
+				obj[key] = {}
 
 			obj = obj[key]
 
