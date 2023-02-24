@@ -7,21 +7,26 @@ class Utils:
 	NoOperation = lambda: None
 
 	@staticmethod
-	def deepProperty(obj, path, value = None):
-		if(value != None):
-			last = path.pop()
-			for key in path:
-				if(key not in obj):
-					obj[key] = []
+	def setDeepProperty(obj, path, value = None):
+		last = path.pop()
+		for key in path:
+			if(key not in obj):
+				obj[key] = []
 
-				obj = obj[key]
+			obj = obj[key]
 
-			obj[last] = value
-			return
+		obj[last] = value
+		return
 
+	@staticmethod
+	def getDeepProperty(obj, path, reduceLen = 0):
+		i = len(path) - reduceLen
 		for key in path:
 			if(key not in obj):
 				return None
+
+			i -= 1
+			if(i == 0): break
 
 			obj = obj[key]
 
@@ -30,7 +35,7 @@ class Utils:
 	@staticmethod
 	def determinePortType(val, that):
 		if(val == None):
-			raise Exception(f"Port type can't be None, error when processing: {that._iface.title}, {that._which} port")
+			raise Exception(f"Port type can't be None, error when processing: {that._iface.namespace}, {that._which} port")
 	
 		type = val
 		def_ = None
@@ -64,11 +69,13 @@ class Utils:
 			def_ = ''
 		elif(type == list):
 			def_ = []
-		elif(type == Types.Any): 0 # Any
 		elif(type == FunctionType): 0
+		elif(type == Types.Any): 0 # Any
+		elif(type == Types.Slot): 0
 		elif(type == Types.Route): 0
 		elif(feature == None):
-			raise Exception("Port for initialization must be a types", 1)
+			print(type)
+			raise Exception("Unrecognized port type or port feature", 1)
 		# else{
 		# 	def = port
 		# 	type = str

@@ -1,5 +1,6 @@
 from ..Internal import EvPortSelf, EvPortValue
 from ..Utils import Utils
+from ..Types import Types
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -27,9 +28,21 @@ class Cable:
 		this.isRoute = False
 		this.connected = False
 		this._hasUpdate = False
+		this._ghost = False
+		this._disconnecting = False
+		this._calling = False
 
 		# For remote-control
 		this._evDisconnected = False
+
+	def connecting(this):
+		if(this.disabled or this.input.type == Types.Slot or this.output.type == Types.Slot):
+			# inp.iface.node.instance.emit('cable.connecting', {
+			# 	port: input, target: output
+			# });
+			return
+		
+		this.connected()
 
 	def _connected(this):
 		owner = this.owner
@@ -49,15 +62,16 @@ class Cable:
 
 		if(this.output.value == None): return
 
-		tempEv = EvPortSelf(this.output)
 		input = this.input
+		tempEv = EvPortValue(input, this.output, this)
 		input.emit('value', tempEv)
 		input.iface.emit('port.value', tempEv)
 
 		node = input.iface.node
 		if(node.instance._importing):
-			node.instance.executionOrder.add(node)
-		else: Utils.runAsync(node._bpUpdate())
+			node.instance.executionOrder.add(node, this)
+		elif(len(node.routes.inp) == 0):
+			Utils.runAsync(node._bpUpdate())
 
 	# For debugging
 	def _print(this):
@@ -65,6 +79,7 @@ class Cable:
 
 	@property
 	def value(this):
+		if(this._disconnecting): return this.input.default
 		return this.output.value
 
 	def disconnect(this, which=False): # which = port
@@ -91,10 +106,26 @@ class Cable:
 		owner = this.owner
 		target = this.target
 		alreadyEmitToInstance = False
+		this._disconnecting = True
 
-		if(this.input != None):
-			this.input._cache = None
-			this.input._hasUpdateCable = None
+		inputPort = this.input
+		if(inputPort != None):
+			oldVal = this.output.value
+			inputPort._cache = None
+
+			defaultVal = inputPort.default
+			if(defaultVal != None and defaultVal != oldVal):
+				iface = inputPort.iface
+				node = iface.node
+				routes = node.routes; # PortGhost's node may not have routes
+
+				if(iface._bpDestroy != True and routes != None and len(routes.inp) == 0):
+					temp = EvPortValue(inputPort, this.output, this)
+					inputPort.emit('value', temp)
+					iface.emit('port.value', temp)
+					node.instance.executionOrder.add(node)
+
+			inputPort._hasUpdateCable = None
 
 		# Remove from cable owner
 		if(owner and (not which or owner == which)):
@@ -127,4 +158,5 @@ class Cable:
 			if(not alreadyEmitToInstance):
 				target.iface.node.instance.emit('cable.disconnect', temp)
 
-		# if(hasOwner or hasTarget) this.connected = False
+		if(owner or target): this.connected = False
+		this._disconnecting = False

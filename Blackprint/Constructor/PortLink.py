@@ -41,30 +41,39 @@ class PortLink(MutableMapping):
 			if(cableLen == 0):
 				return port.default
 
+			portIface = port.iface
+
 			# Flag current iface is requesting value to other iface
-			port.iface._requesting = True
+			portIface._requesting = True
 
 			# Return single data
 			if(cableLen == 1):
 				cable = port.cables[0] # Don't use pointer
 
 				if(cable.connected == False or cable.disabled):
-					port.iface._requesting = False
+					portIface._requesting = False
 					if(port.feature == Port.ArrayOf):
 						port._cache = []
+					else: port._cache = port.default
 
-					port._cache = port.default
 					return port._cache
 
 				output = cable.output
 
 				# Request the data first
 				if(output.value == None):
+					node = output.iface.node
+					executionOrder = node.instance.executionOrder
+
+					if(executionOrder.stepMode and node.request != None):
+						executionOrder._addStepPending(cable, 3)
+						return
+
 					output.iface.node.request(cable)
 
 				# print(f"\n1. {port.name} . {output.name} ({output.value})")
 
-				port.iface._requesting = False
+				portIface._requesting = False
 
 				if(port.feature == Port.ArrayOf):
 					port._cache = []
@@ -103,21 +112,25 @@ class PortLink(MutableMapping):
 					if finalVal == None:
 						finalVal = port.default
 
-					port.iface._requesting = False
+					portIface._requesting = False
 					port._cache = finalVal
 					return port._cache
 
 				data.append(output.value)
 
-			port.iface._requesting = False
+			portIface._requesting = False
 
 			port._cache = data
 			return data
 		# else: output ports
 
-		# Callable port (for output ports)
-		if(port._callAll != None):
-			return port._callAll
+		# This may get called if the port is lazily assigned with Slot port feature
+		if(port.type == Types.Function):
+			if(port.__call == None):
+				def callback():port._callAll()
+				port.__call = callback
+
+			return port.__call
 
 		return port.value
 
@@ -140,6 +153,8 @@ class PortLink(MutableMapping):
 			# Type check
 			if port.type == Types.Any:
 				pass
+			elif port.type == Types.Slot:
+				raise Exception("Port type need to be assigned before giving any value")
 			elif isinstance(val, port.type):
 				pass
 			else: raise Exception(f"Can't validate type: {type(val).__name__} != {port.type.__name__}")
@@ -172,6 +187,22 @@ class PortLink(MutableMapping):
 		return this._ifacePort.__contains__(this,x)
 
 	def _add(this, portName, val):
+		if(re.search(r'/([~!@#$%^&*()_\-+=[]{};\'\\:"|,.\/<>?]|\s)/', portName) != None):
+			raise Exception("Port name can't include symbol character except underscore")
+
+		if(portName == ''):
+			raise Exception("Port name can't be empty")
+
+		if(this._which == 'output' and val['feature'] != None):
+			if(val['feature'] == Port.Union):
+				val = Types.Any
+			elif(val['feature'] == Port.Trigger):
+				val = Types.Function
+			elif(val['feature'] == Port.ArrayOf):
+				val = Types.Array
+			elif(val['feature'] == Port.Default):
+				val = val['type']
+
 		iPort = this._ifacePort
 
 		if(portName in iPort):
@@ -182,6 +213,7 @@ class PortLink(MutableMapping):
 
 		linkedPort = this._iface._newPort(portName, type, def_, this._which, haveFeature)
 		iPort[portName] = linkedPort
+		linkedPort._config = val
 
 		if(not (haveFeature == Port.Trigger and this._which == 'input')):
 			linkedPort.createLinker()

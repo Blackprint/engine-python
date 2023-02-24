@@ -13,6 +13,9 @@ class PortName():
 @registerNode('BP/FnVar/Input')
 class FnVarInput(Node):
 	output = {}
+	# @var FnVarInputIface
+	iface: 'FnVarInputIface' = None
+
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 
@@ -23,7 +26,6 @@ class FnVarInput(Node):
 		iface.title = 'FnInput'
 
 		iface._enum = Enums.BPFnVarInput
-		iface._dynamicPort = True # Port is initialized dynamically
 
 	def imported(this, data):
 		if(this.routes != None):
@@ -35,9 +37,19 @@ class FnVarInput(Node):
 		# This will trigger the port to request from outside and assign to this node's port
 		this.output['Val'] = iface._funcMain.node.input[iface.data['name']]
 
+	def destroy(this):
+		iface = this.iface
+		if(iface._listener == None): return
+
+		port = iface._proxyIface.output[iface.data['name']]
+		if(port.feature == Port.Trigger):
+			port.off('call', iface._listener)
+		else: port.off('value', iface._listener)
+
 @registerNode('BP/FnVar/Output')
 class FnVarOutput(Node):
 	input = {}
+	refOutput = None
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 
@@ -48,16 +60,27 @@ class FnVarOutput(Node):
 		iface.title = 'FnOutput'
 
 		iface._enum = Enums.BPFnVarOutput
-		iface._dynamicPort = True # Port is initialized dynamically
 
 	def update(this, cable):
-		id = this.iface.data['name']
+		iface = this.iface
+		id = iface.data['name']
 		this.refOutput[id] = this.ref.Input["Val"]
 
+		mainNodeIFace = iface._funcMain
+		proxyOutputNode = mainNodeIFace._proxyOutput
+
 		# Also update the cache on the proxy node
-		this.iface._funcMain._proxyOutput.ref.IInput[id]._cache = this.ref.Input['Val']
+		proxyOutputNode.ref.IInput[id]._cache = this.ref.Input['Val']
+
+		# If main node has route and the output proxy doesn't have input route
+		# Then trigger out route on the main node
+		mainNodeRoutes = mainNodeIFace.node.routes
+		if(mainNodeRoutes.out != None and len(proxyOutputNode.routes.inp) == 0):
+			mainNodeRoutes.routeOut()
 
 class BPFnVarInOut(Interface):
+	_dynamicPort = True # Port is initialized dynamically
+
 	def imported(this, data):
 		if('name' not in data or data['name'] == ''): raise Exception("Parameter 'name' is required")
 		this.data['name'] = data['name']
@@ -66,6 +89,10 @@ class BPFnVarInOut(Interface):
 
 @registerInterface('BPIC/BP/FnVar/Input')
 class FnVarInputIface(BPFnVarInOut):
+	_listener = None
+	_proxyIface = None
+	_waitPortInit = None
+
 	def __init__(this, node):
 		BPFnVarInOut.__init__(this, node)
 		this.type = 'bp-fnvar-input'
@@ -80,7 +107,7 @@ class FnVarInputIface(BPFnVarInOut):
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
 		if(name not in ports):
-			iPort = node.createPort('output', 'Val', Types.Any)
+			iPort = node.createPort('output', 'Val', Types.Slot)
 			proxyIface = this._proxyIface
 
 			# Run when this node is being connected with other node
@@ -92,16 +119,15 @@ class FnVarInputIface(BPFnVarInOut):
 				proxyIface.off(f"_add.{name}", this._waitPortInit)
 				this._waitPortInit = None
 
-				cable.disconnect()
-				node.deletePort('output', 'Val')
-
 				portName = PortName(name)
 				portType = getFnPortType(port, 'input', this._funcMain, portName)
-				newPort = node.createPort('output', 'Val', portType)
-				newPort._name = portName
-				newPort.connectPort(port)
+				iPort.assignType(portType)
+				iPort._name = portName
 
 				proxyIface.addPort(port, name)
+				tPort = port if cable.owner == iPort else iPort
+				tPort.connectCable(cable)
+
 				this._addListener()
 				return True
 
@@ -115,19 +141,9 @@ class FnVarInputIface(BPFnVarInOut):
 				iPort.onConnect = None
 				this._waitPortInit = None
 
-				backup = []
-				cables = this.output['Val'].cables
-				for cable in cables:
-					backup.append(cable.input)
-
-				node.deletePort('output', 'Val')
-
 				portType = getFnPortType(port, 'input', this._funcMain, port._name)
-				newPort = node.createPort('output', 'Val', portType)
+				iPort.assignType(portType)
 				this._addListener()
-
-				for val in backup:
-					newPort.connectPort(val)
 
 			this._waitPortInit = _waitPortInit
 
@@ -135,16 +151,17 @@ class FnVarInputIface(BPFnVarInOut):
 
 		else:
 			if('Val' not in this.output):
-				port = ports[name]
+				port = this._funcMain._proxyInput.iface.output[name]
 				portType = getFnPortType(port, 'input', this._funcMain, port._name)
-				node.createPort('output', 'Val', portType)
+				newPort = node.createPort('output', 'Val', portType)
+				newPort._name = port._name
 
 			this._addListener()
 
 	def _addListener(this):
 		port = this._proxyIface.output[this.data['name']]
 
-		if(port.feature == Port.Trigger):
+		if(port.type == FunctionType):
 			def _listener(ev):
 				this.ref.Output['Val']()
 
@@ -171,17 +188,12 @@ class FnVarInputIface(BPFnVarInOut):
 			this._listener = _listener
 			port.on('value', _listener)
 
-	def destroy(this):
-		BPFnVarInOut.destroy(this)
-		if(this._listener == None): return
-
-		port = this._proxyIface.output[this.data['name']]
-		if(port.feature == Port.Trigger):
-			port.off('call', this._listener)
-		else: port.off('value', this._listener)
-
 @registerInterface('BPIC/BP/FnVar/Output')
 class FnVarOutputIface(BPFnVarInOut):
+	_waitPortInit = None
+	type = None
+	node: 'FnVarOutput' = None
+
 	def __init__(this, node):
 		BPFnVarInOut.__init__(this, node)
 		this.type = 'bp-fnvar-output'
@@ -196,7 +208,7 @@ class FnVarOutputIface(BPFnVarInOut):
 		# Create temporary port if the main function doesn't have the port
 		name = data['name']
 		if(name not in ports):
-			iPort = node.createPort('input', 'Val', Types.Any)
+			iPort = node.createPort('input', 'Val', Types.Slot)
 			proxyIface = this._funcMain._proxyOutput.iface
 
 			# Run when this node is being connected with other node
@@ -208,16 +220,14 @@ class FnVarOutputIface(BPFnVarInOut):
 				proxyIface.off(f"_add.{name}", this._waitPortInit)
 				this._waitPortInit = None
 
-				cable.disconnect()
-				node.deletePort('input', 'Val')
-
 				portName = PortName(name)
 				portType = getFnPortType(port, 'output', this._funcMain, portName)
-				newPort = node.createPort('input', 'Val', portType)
-				newPort._name = portName
-				newPort.connectPort(port)
+				iPort.assignType(portType)
+				iPort._name = portName
 
 				proxyIface.addPort(port, name)
+				tPort = port if cable.owner == iPort else iPort
+				tPort.connectCable(cable)
 				return True
 			
 			iPort.onConnect = onConnect
@@ -230,32 +240,31 @@ class FnVarOutputIface(BPFnVarInOut):
 				iPort.onConnect = None
 				this._waitPortInit = None
 
-				backup = []
-				cables = this.input['Val'].cables
-				for cable in cables:
-					backup.append(cable.output)
-
-				node.deletePort('input', 'Val')
-
 				portType = getFnPortType(port, 'output', this._funcMain, port._name)
-				newPort = node.createPort('input', 'Val', portType)
-
-				for value in backup:
-					newPort.connectPort(value)
+				iPort.assignType(portType)
 
 			this._waitPortInit = _waitPortInit
 			proxyIface.once(f"_add.{name}", this._waitPortInit)
 
 		else:
-			port = ports[name]
+			port = this._funcMain._proxyOutput.iface.input[name]
 			portType = getFnPortType(port, 'output', this._funcMain, port._name)
-			node.createPort('input', 'Val', portType)
+			newPort = node.createPort('input', 'Val', portType)
+			newPort._name = port._name
 
+def _Dummy_PortTrigger_():
+	raise Exception("This can't be called")
+
+_Dummy_PortTrigger = Port.Trigger(_Dummy_PortTrigger_)
 
 def getFnPortType(port, which, parentNode, ref):
-	if(port.feature == Port.Trigger):
+	if(port.feature == Port.Trigger or port.type == FunctionType):
 		if(which == 'input'): # Function Input (has output port inside, and input port on main node):
 			return FunctionType
-		else: return Port.Trigger(parentNode.output[ref.name]._callAll)
-
-	else: return port.feature(port.type) if port.feature != None else port.type
+		else: return _Dummy_PortTrigger
+	# Skip ArrayOf port feature, and just use the type
+	elif(port.feature == Port.ArrayOf):
+		return port.type
+	elif(port._isSlot):
+		raise Exception("Function node's input/output can't use port from an lazily assigned port type (Types.Slot)")
+	else: return port._config

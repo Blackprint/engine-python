@@ -21,6 +21,7 @@ class Interface(CustomEvent):
 	importing = True
 	isGhost = False
 	ref: References
+	data = None
 
 	# @var Nodes/FnMain 
 	_funcMain = None

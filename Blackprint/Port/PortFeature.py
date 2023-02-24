@@ -43,11 +43,17 @@ class Port:
 		if func == None: raise Exception("Callback must not be None")
 		return {
 			'feature': Port.Trigger,
+			'type': function,
 			'func': func
 		}
 
 	# This port can allow multiple different types
 	# like an 'any' port, but can only contain one value
+	# 
+	# Note:
+	# Output port mustn't use union, it must only output one type
+	# and one port can't output multiple possible type
+	# In this case, Types.Any will be used you may want to cast the type with a node
 	 
 	@staticmethod
 	def Union(types):
@@ -58,17 +64,6 @@ class Port:
 
 	@staticmethod
 	def Union_validate(types, target):
-		if(isinstance(types, list) and isinstance(target, list)):
-			if(len(types) != len(target)): return False
-	
-			for type in types:
-				if(type not in target):
-					return False
-
-	
-			return True
-
-	
 		return (target == Types.Any) or (target in types)
 
 	# This port can allow multiple different types

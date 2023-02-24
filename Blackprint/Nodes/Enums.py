@@ -8,3 +8,5 @@ class Enums:
 	BPFnInput = 7
 	BPFnOutput = 8
 	BPFnMain = 9
+	BPEventListen = 10
+	BPEventEmit = 11

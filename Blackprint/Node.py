@@ -45,6 +45,9 @@ class Node(CustomEvent):
 		return iface
 
 	def createPort(this, which, name, type):
+		if(this.instance._locked_):
+			raise Exception("This instance was locked")
+
 		if(which != 'input' and which != 'output'):
 			raise Exception("Can only create port for 'input' and 'output'")
 
@@ -53,6 +56,9 @@ class Node(CustomEvent):
 		else: return this.output._add(name, type)
 
 	def renamePort(this, which, name, to):
+		if(this.instance._locked_):
+			raise Exception("This instance was locked")
+
 		iPort = this.iface[which]
 
 		if(name not in iPort):
@@ -70,6 +76,9 @@ class Node(CustomEvent):
 		del this[which][name]
 
 	def deletePort(this, which, name):
+		if(this.instance._locked_):
+			raise Exception("This instance was locked")
+
 		if(which != 'input' and which != 'output'):
 			raise Exception("Can only delete port for 'input' and 'output'")
 
@@ -83,16 +92,14 @@ class Node(CustomEvent):
 	def _bpUpdate(this):
 		thisIface = this.iface
 		isMainFuncNode = thisIface._enum == Enums.BPFnMain
-
-		if(not (isMainFuncNode and this.routes.out != None)):
-			this._bpUpdating = True
-			cour = this.update(None)
-			if(asyncio.iscoroutine(cour)): asyncio.run(cour)
-			this._bpUpdating = False
-
-			this.iface.emit('updated')
-
 		ref = this.instance.executionOrder
+
+		this._bpUpdating = True
+		cour = this.update(None)
+		if(asyncio.iscoroutine(cour)): asyncio.run(cour)
+		this._bpUpdating = False
+		# this.iface.emit('updated')
+
 		if(this.routes.out == None):
 			if(isMainFuncNode and thisIface.node.routes.out != None):
 				thisIface.node.routes.routeOut()
@@ -113,5 +120,6 @@ class Node(CustomEvent):
 	def imported(this, data): pass
 	def update(this, cable): pass
 	def request(this, cable): pass
+	def initPorts(this): pass
 	def destroy(this): pass
 	def syncIn(this, id, data): pass

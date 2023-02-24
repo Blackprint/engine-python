@@ -8,25 +8,40 @@ class PortGhost(PortClass):
 	def destroy(this):
 		this.disconnectAll(False)
 
-fakeIface = Interface()
-fakeIface.title = "Blackprint.PortGhost"
-fakeIface.isGhost = True
-fakeIface.node = Node()
+class fakeInstance:
+	def emit():
+		pass
 
-fakeIface._iface = fakeIface
-PortGhost.fakeIface = fakeIface
+class fakeNode:
+	instance = fakeInstance()
+
+class fakeIface:
+	title = "Blackprint.PortGhost"
+	isGhost = True
+	node = None
+	emit = None
+	_iface = None
+	input = []
+	output = []
+	def __init__(this):
+		this.node = fakeNode()
+	def emit():
+		pass
+
+_fakeIface = fakeIface()
+_fakeIface._iface = _fakeIface
 
 # These may be useful for testing or creating custom port without creating nodes when scripting
 class OutputPort(PortGhost):
 	_ghost = True
 	def __init__(this, type):
-		( type, def_, haveFeature ) = Utils.determinePortType(type, PortGhost.fakeIface)
+		( type, def_, haveFeature ) = Utils.determinePortType(type, _fakeIface)
 
-		PortGhost.__init__(this, 'Blackprint.OutputPort', type, def_, 'output', fakeIface, haveFeature)
+		PortGhost.__init__(this, 'Blackprint.OutputPort', type, def_, 'output', _fakeIface, haveFeature)
 
 class InputPort(PortGhost):
 	_ghost = True
 	def __init__(this, type):
-		( type, def_, haveFeature ) = Utils.determinePortType(type, PortGhost.fakeIface)
+		( type, def_, haveFeature ) = Utils.determinePortType(type, _fakeIface)
 
-		PortGhost.__init__(this, 'Blackprint.InputPort', type, def_, 'input', fakeIface, haveFeature)
+		PortGhost.__init__(this, 'Blackprint.InputPort', type, def_, 'input', _fakeIface, haveFeature)

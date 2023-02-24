@@ -7,6 +7,7 @@ from .Event import Event
 class Environment:
 	_noEvent = False # static property
 	map: Dict[str, str] = {} # static property
+	_rules: Dict[str, str] = {} # static property
 
 	# arr = ["KEY": "value"]
 	@staticmethod
@@ -37,3 +38,15 @@ class Environment:
 
 		temp = EvEnv(key)
 		Event.emit('environment.deleted', temp)
+
+
+	# options = {allowGet: {}, allowSet: {}}
+	@staticmethod
+	def rule(name, options):
+		if(name in Environment.map):
+			raise Exception(f"'{name}' was not found on Blackprint.Environment, maybe it haven't been added or imported")
+
+		if(name in Environment._rules):
+			raise Exception(f"'rule' only allow first registration")
+
+		Environment._rules[name] = options

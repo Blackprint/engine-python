@@ -9,7 +9,9 @@ from ..Internal import registerNode, registerInterface
 from ..Types import Types
 from ..Port.PortFeature import Port
 import re
-from .Environments import BPEnvGet # Don't delete, this is needed for importing the internal node
+
+# Don't delete even unused, this is needed for importing the internal node
+from .Environments import BPEnvGet
 
 # For internal library use only
 class VarScope:
@@ -20,6 +22,7 @@ class VarScope:
 @registerNode('BP/Var/Set')
 class VarSet(Node):
 	input = {}
+	iface: 'IVarSet' = None
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 		iface = this.setInterface('BPIC/BP/Var/Set')
@@ -33,10 +36,11 @@ class VarSet(Node):
 		iface.title = 'VarSet'
 		iface.type = 'bp-var-set'
 		iface._enum = Enums.BPVarSet
-		iface._dynamicPort = True # Port is initialized dynamically
 
 	def update(this, cable):
 		this.iface._bpVarRef.value = this.input['Val']
+
+	def destroy(this): this.iface.destroyIface()
 
 
 @registerNode('BP/Var/Get')
@@ -55,11 +59,8 @@ class VarGet(Node):
 		iface.title = 'VarGet'
 		iface.type = 'bp-var-get'
 		iface._enum = Enums.BPVarGet
-		iface._dynamicPort = True # Port is initialized dynamically
 
-
-class BPVarTemp:
-	typeNotSet = {'typeNotSet': True} # Flag that a port is not set
+	def destroy(this): this.iface.destroyIface()
 
 # used for instance.createVariable
 class BPVariable(CustomEvent):
@@ -70,13 +71,16 @@ class BPVariable(CustomEvent):
 	def __init__(this, id, options=None):
 		CustomEvent.__init__(this)
 
-		this.used = []
-		id = re.sub(r'[`~!@#$%^&*()\-_+=:}\[\]:"|;\'\\\\,.\/<>?]+', '_', id)
+		id = re.sub(r'/^\/|\/$/m', '', id)
+		id = re.sub(r'/[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\\\,.<>?]+/', '_', id)
+		this.id = id
+		this.title = options['title'] if 'title' in options else id
 
 		# this.rootInstance = instance
 		this.id = this.title = id
-		this.type = BPVarTemp.typeNotSet
+		this.type = Types.Slot
 		this._value = None
+		this.used = []
 
 		# The type need to be defined dynamically on first cable connect
 
@@ -100,6 +104,7 @@ class BPVariable(CustomEvent):
 
 class BPVarGetSet(Interface):
 	_onChanged = None
+	_dynamicPort = True # Port is initialized dynamically
 
 	def imported(this, data):
 		if(('scope' not in data) or ('name' not in data)):
@@ -130,7 +135,9 @@ class BPVarGetSet(Interface):
 		else: # private
 			scope = this.node.instance.variables
 
-		if(name not in scope):
+		construct = Utils.getDeepProperty(scope, name.split('/'))
+
+		if(name not in construct):
 			if(scopeId == VarScope.public): _scopeName = 'public'
 			elif(scopeId == VarScope.private): _scopeName = 'private'
 			elif(scopeId == VarScope.shared): _scopeName = 'shared'
@@ -138,30 +145,51 @@ class BPVarGetSet(Interface):
 
 			raise Exception(f"'{name}' variable was not defined on the '{_scopeName} (scopeId: {scopeId})' instance")
 
-		return scope
+		return construct
 
 	def _reinitPort(this):
 		raise Exception("It should only call child method and not the parent")
 
-	
 	def useType(this, port: PortClass):
 		temp = this._bpVarRef
-		if(temp.type != BPVarTemp.typeNotSet):
-			if(port == None): temp.type = BPVarTemp.typeNotSet
+		if(temp.type != Types.Slot):
+			if(port == None): temp.type = Types.Slot
 			return
 
 		if(port == None): raise Exception("Can't set type with None")
-		temp.type = port.type
+		temp.type = port._config if port._config != None else port.type
 
-		targetPort = this._reinitPort()
-		targetPort.connectPort(port)
+		if(port.type == Types.Slot):
+			this.waitTypeChange(temp, port)
+		else: temp.emit('type.assigned')
 
 		# Also create port for other node that using this variable
 		used = temp.used
 		for item in used:
 			item._reinitPort()
 
-	def destroy(this):
+	def waitTypeChange(this, bpVar, port=None):
+		def callback():
+			if(port != None):
+				bpVar.type = port._config if port._config != None else port.type
+				bpVar.emit('type.assigned')
+			else:
+				if this.input['Val'] != None:
+					target = this.input['Val']
+				else: target = this.output['Val']
+				target.assignType(bpVar.type)
+
+		this._waitTypeChange = callback
+		this._destroyWaitType = lambda: bpVar.off('type.assigned', this._waitTypeChange)
+
+		iPort = port if port != None else bpVar
+		iPort.once('type.assigned', this._waitTypeChange)
+
+	def destroyIface(this):
+		temp = this._destroyWaitType
+		if(temp != None):
+			this._destroyWaitType()
+
 		temp = this._bpVarRef
 		if(temp == None): return
 
@@ -176,6 +204,7 @@ class BPVarGetSet(Interface):
 
 @registerInterface('BPIC/BP/Var/Get')
 class IVarGet(BPVarGetSet):
+	_eventListen = None
 	def changeVar(this, name, scopeId):
 		if(this.data['name'] != ''):
 			raise Exception("Can't change variable node that already be initialized")
@@ -184,22 +213,25 @@ class IVarGet(BPVarGetSet):
 			if(this._bpVarRef != None):
 				this._bpVarRef.off('value', this._onChanged)
 
-		scope = BPVarGetSet.changeVar(this, name, scopeId)
-		this.title = "Get name"
+		varRef = BPVarGetSet.changeVar(this, name, scopeId)
+		this.title = name.replace('/', ' / ')
 
-		temp = scope[this.data['name']]
-		this._bpVarRef = temp
-		if(temp.type == BPVarTemp.typeNotSet): return scope
+		this._bpVarRef = varRef
+		if(varRef.type == Types.Slot): return varRef
 
 		this._reinitPort()
 
 	def _reinitPort(this):
 		temp = this._bpVarRef
 		node = this.node
+
+		if(temp.type == Types.Slot):
+			this.waitTypeChange(temp)
+
 		if('Val' in this.output):
 			node.deletePort('output', 'Val')
 
-		ref = this.node.output
+		ref = node.output
 		node.createPort('output', 'Val', temp.type)
 
 		if(temp.type == FunctionType):
@@ -211,24 +243,26 @@ class IVarGet(BPVarGetSet):
 			def callback(ev): ref['Val'] = temp._value
 			this._onChanged = callback
 
+		if(temp.type != Types.Function):
+			node.output['Val'] = temp._value
+
 		temp.on(this._eventListen, this._onChanged)
 		return this.output['Val']
 
-	def destroy(this):
+	def destroyIface(this):
 		if(this._eventListen != None):
 			this._bpVarRef.off(this._eventListen, this._onChanged)
 
-		BPVarGetSet.destroy(this)
+		BPVarGetSet.destroyIface(this)
 
 @registerInterface('BPIC/BP/Var/Set')
 class IVarSet(BPVarGetSet):
 	def changeVar(this, name, scopeId):
-		scope = BPVarGetSet.changeVar(this, name, scopeId)
-		this.title = "Set name"
+		varRef = BPVarGetSet.changeVar(this, name, scopeId)
+		this.title = name.replace('/', ' / ')
 
-		temp = scope[this.data['name']]
-		this._bpVarRef = temp
-		if(temp.type == BPVarTemp.typeNotSet): return scope
+		this._bpVarRef = varRef
+		if(varRef.type == Types.Slot): return varRef
 
 		this._reinitPort()
 
@@ -236,6 +270,9 @@ class IVarSet(BPVarGetSet):
 		input = this.input
 		node = this.node
 		temp = this._bpVarRef
+
+		if(temp.type == Types.Slot):
+			this.waitTypeChange(temp)
 
 		if('Val' in input):
 			node.deletePort('input', 'Val')

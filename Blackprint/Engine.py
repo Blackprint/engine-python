@@ -1,8 +1,9 @@
+import re
 import asyncio
 from .Nodes.Enums import Enums
 from .Nodes.BPFunction import FnMain, BPFunction
 from .Nodes.BPVariable import VarScope, BPVariable
-from .Types import Types as PortType
+from .Types import Types
 from .Environment import Environment
 from .Utils import Utils
 from .Internal import EvError, EvIface, Internal
@@ -11,6 +12,7 @@ from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
 from .Constructor.OrderedExecution import OrderedExecution
 from .Constructor.Cable import Cable
+from .Constructor.InstanceEvent import InstanceEvents
 from typing import Dict, List
 import json as JSON
 
@@ -18,20 +20,26 @@ class Engine(CustomEvent):
 	def __init__(this):
 		CustomEvent.__init__(this)
 
-		this.iface: Dict[str, Interface] = {}
+		this.iface: Dict[str, Interface] = {} # { id => IFace }
 		this.ifaceList: List[Interface] = []
 		this.disablePorts = False
 		this.throwOnError = True
+		this._settings = {}
 
-		this.variables = {}
-		this.functions = {}
-		this.ref: Dict[str, Interface] = {}
+		this.variables = {} # { category => BPVariable{ name, value, type }, category => { category } }
+		this.functions = {} # { category => BPFunction{ name, variables, input, output, used: [], node, description }, category => { category } }
+		this.ref = {} # { id => Port references }
 
 		this._funcMain: FnMain = None
-		this._settings = {}
-		this.executionOrder = OrderedExecution()
-
+		this._mainInstance = None
 		this._importing = False
+		this._remote = False
+		this._locked_ = False
+		this._eventsInsNew = False
+		this._destroyed_ = False
+
+		this.executionOrder = OrderedExecution()
+		this.events = InstanceEvents(this)
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
@@ -43,12 +51,12 @@ class Engine(CustomEvent):
 			if(this.throwOnError):
 				raise Exception("Node to be deleted was not found")
 
-			return this.emit('error', EvError('node_delete_not_found', EvIface(iface)))
+			return this._emit('error', EvError('node_delete_not_found', EvIface(iface)))
 
 		# iface._bpDestroy = True
 
 		eventData = EvIface(iface)
-		this.emit('node.delete', eventData)
+		this._emit('node.delete', eventData)
 
 		iface.node.destroy()
 		iface.destroy()
@@ -60,7 +68,7 @@ class Engine(CustomEvent):
 				portList[port].disconnectAll(this._remote != None)
 
 		routes = iface.node.routes
-		if(routes.inp.length != 0):
+		if(len(routes.inp) != 0):
 			inp = routes.inp
 			for cable in inp:
 				cable.disconnect()
@@ -75,7 +83,7 @@ class Engine(CustomEvent):
 		if(parent != None):
 			del parent.rootInstance.ref[iface.id]
 
-		this.emit('node.deleted', eventData)
+		this._emit('node.deleted', eventData)
 
 	def clearNodes(this):
 		list = this.ifaceList
@@ -93,43 +101,59 @@ class Engine(CustomEvent):
 		if(isinstance(json, str)):
 			json = JSON.loads(json)
 
+		# Throw if no instance data in the JSON
+		if(not('instance' in json)):
+			raise Exception("Instance was not found in the JSON data")
+
+		if(not('appendMode' in options)): options['appendMode'] = False
+		if(not('clean' in options)): options['clean'] = True
+		if(not('noEnv' in options)): options['noEnv'] = False
+
 		appendMode = 'appendMode' in options and options['appendMode'] == False
 		if(not appendMode): this.clearNodes()
 		reorderInputPort = []
+
 		this._importing = True
 
+		if(options['clean'] != False and not('appendMode' in options)):
+			this.clearNodes()
+			this.functions = []
+			this.variables = []
+			this.events.list = []
+		elif(not options['appendMode']): this.clearNodes()
+
 		# Do we need this?
-		# this.emit("json.importing",:appendMode: options.appendMode, raw: json})
-
-		metadata = None
-		if('_' in json):
-			metadata = json['_']
-			del json['_']
+		# this.emit("json.importing", appendMode: options.appendMode, raw: json})
 		
-		if(metadata != None):
-			if('env' in metadata):
-				Environment.imports(metadata['env'])
+		if('environments' in json and not(options['noEnv'])):
+			Environment.imports(json['environments'])
 
-			if('functions' in metadata):
-				functions = metadata['functions']
+		if('functions' in json):
+			functions = json['functions']
 	
-				for key, value in functions.items():
-					this.createFunction(key, value)
+			for key, value in functions.items():
+				this.createFunction(key, value)
+	
+		if('variables' in json):
+			variables = json['variables']
+	
+			for key, value in variables.items():
+				this.createVariable(key, value)
 
-	
-			if('variables' in metadata):
-				variables = metadata['variables']
-	
-				for key, value in variables.items():
-					this.createVariable(key, value)
+		if('events' in json):
+			events = json['events']
+
+			for path, value in events.items():
+				this.events.createEvent(path, value)
 
 		inserted = this.ifaceList
 		nodes = []
 		appendLength = len(inserted) if appendMode else 0
+		instance = json['instance']
 
 		# Prepare all ifaces based on the namespace
 		# before we create cables for them
-		for namespace, ifaces in json.items():
+		for namespace, ifaces in instance.items():
 			# Every ifaces that using this namespace name
 			for conf in ifaces:
 				conf['i'] += appendLength
@@ -159,7 +183,7 @@ class Engine(CustomEvent):
 
 		# Create cable only from output and property
 		# > Important to be separated from above, so the cable can reference to loaded ifaces
-		for namespace, ifaces in json.items():
+		for namespace, ifaces in instance.items():
 			# Every ifaces that using this namespace name
 			for ifaceJSON in ifaces:
 				iface = inserted[ifaceJSON['i']]
@@ -193,6 +217,8 @@ class Engine(CustomEvent):
 						# Current output's available targets
 						for target in ports:
 							target['i'] += appendLength
+
+							# @var \Blackprint\Interfaces|\Blackprint\Nodes\BPFnInOut|\Blackprint\Nodes\BPVarGetSet
 							targetNode = inserted[target['i']] # iface
 
 							if(linkPortA.isRoute):
@@ -217,7 +243,7 @@ class Engine(CustomEvent):
 									targetNode.useType(linkPortA)
 									linkPortB = targetNode.input[target['name']]
 
-								elif(linkPortA.type == PortType.Route):
+								elif(linkPortA.type == Types.Route):
 									linkPortB = targetNode.node.routes
 
 								else: raise Exception(f"Node port not found for targetNode.title with name: {target['name']}")
@@ -270,6 +296,7 @@ class Engine(CustomEvent):
 		if(val == None):
 			return this.settings[which]
 
+		which = which.replace('.', '_')
 		this.settings[which] = val
 
 	def _getTargetPortType(this, instance, whichPort, targetNodes):
@@ -329,6 +356,9 @@ class Engine(CustomEvent):
 			if(parent != None):
 				parent.rootInstance.ref[iface.id] = iface.ref
 
+		savedData = options['data'] if 'data' in options else None
+		portSwitches = options['output_sw'] if 'output_sw' in options else None
+
 		if(options['i'] != None):
 			iface.i = options['i']
 
@@ -338,16 +368,14 @@ class Engine(CustomEvent):
 				this.ifaceList.append(None)
 
 			this.ifaceList[iface.i] = iface
-
 		else: this.ifaceList.append(iface)
+
+		node.initPorts(savedData)
 
 		if('input_d' in options):
 			defaultInputData = options['input_d']
 			if(defaultInputData != None):
 				iface._importInputs(defaultInputData)
-
-		savedData = options['data'] if 'data' in options else None
-		portSwitches = options['output_sw'] if 'output_sw' in options else None
 
 		if(portSwitches != None):
 			for key, val in portSwitches.items():
@@ -366,36 +394,56 @@ class Engine(CustomEvent):
 
 		if(nodes != None):
 			nodes.append(node)
-
-		iface.init()
-
-		if(nodes == None):
+		else:
+			iface.init()
 			node.init()
 
 		return iface
 
 	def createVariable(this, id, options):
-		if(id in this.variables):
+		if(this._locked_): raise Exception("This instance was locked")
+		if(re.search(r'/\s/', id) != None):
+			raise Exception(f"Id can't have space character: '{id}'")
+
+		ids = id.split('/')
+		lastId = ids[len(ids) - 1]
+		parentObj = Utils.getDeepProperty(this.variables, ids, 1)
+
+		if(parentObj != None and lastId in parentObj):
 			this.variables[id].destroy()
 			del this.variables[id]
 
-		# deepProperty
+		# setDeepProperty
 
 		# BPVariable = ./nodes/Var.js
 		temp = BPVariable(id, options)
-		this.variables[id] = temp
-		this.emit('variable.new', temp)
+		Utils.setDeepProperty(this.variables, ids, temp)
+
+		temp._scope = VarScope.public
+		this._emit('variable.new', temp)
 
 		return temp
 
 	def createFunction(this, id, options):
+		if(this._locked_): raise Exception("This instance was locked")
+		if(re.search(r'/\s/', id) != None):
+			raise Exception(f"Id can't have space character: '{id}'")
+
 		if(id in this.functions):
 			this.functions[id].destroy()
 			del this.functions[id]
 
+		ids = id.split('/')
+		lastId = ids[len(ids) - 1]
+		parentObj = Utils.getDeepProperty(this.functions, ids, 1)
+
+		if(parentObj != None and lastId in parentObj):
+			parentObj[lastId].destroy()
+			del parentObj[lastId]
+
 		# BPFunction = ./nodes/Fn.js
 		temp = BPFunction(id, options, this)
-		this.functions[id] = temp
+		Utils.setDeepProperty(this.functions, ids, temp)
 
 		if('vars' in options):
 			vars = options['vars']
@@ -407,18 +455,31 @@ class Engine(CustomEvent):
 			for val in privateVars:
 				temp.addPrivateVars(val)
 
-		this.emit('function.new', temp)
+		this._emit('function.new', temp)
 		return temp
 
 	def _log(this, data):
 		data.instance = this
 
 		if(this._mainInstance != None):
-			this._mainInstance.emit('log', data)
-		else: this.emit('log', data)
+			this._mainInstance._emit('log', data)
+		else: this._emit('log', data)
 
 	def destroy(this):
+		this._locked_ = False
+		this._destroyed_ = True
 		this.clearNodes()
+		this.emit('destroy')
+	
+	def _emit(this, evName, data=[]):
+		this.emit(evName, data)
+		if(this._funcMain == None): return
+
+		rootInstance = this._funcMain.node._funcInstance.rootInstance
+		if(rootInstance._remote == None): return
+
+		data['bpFunction'] = rootInstance._funcInstance
+		rootInstance.emit(evName, data)
 
 def deepMerge(real, opt):
 	for key, val in opt.items():

@@ -11,6 +11,7 @@ class RoutePort:
 	def __init__(this, iface):
 		this.inp: list[Cable] = [] # Allow incoming route from multiple path
 		this.out: Cable = None # Only one route/path
+		# this._outTrunk = None // If have branch
 		this.disableOut = False
 		this.disabled = False
 		this.isRoute = True
@@ -55,8 +56,14 @@ class RoutePort:
 
 		return True
 
-	def routeIn(this):
+	def routeIn(this, _cable = None, _force = False):
 		node = this.iface.node
+
+		# Add to execution list if the OrderedExecution is in Step Mode
+		executionOrder = node.instance.executionOrder
+		if(executionOrder.stepMode and _cable and not _force):
+			executionOrder._addStepPending(_cable, 1)
+			return
 
 		if(this.iface._enum != Enums.BPFnInput):
 			node._bpUpdate()
@@ -67,8 +74,11 @@ class RoutePort:
 		if(this.out == None):
 			if(this.iface._enum == Enums.BPFnOutput):
 				return this.iface._funcMain.node.routes.routeIn()
-
 			return
+
+		# node = this.iface.node
+		# if(!node.instance.executionOrder.stepMode):
+		# 	this.out.visualizeFlow()
 
 		targetRoute = this.out.input
 		if(targetRoute == None): return
@@ -76,10 +86,10 @@ class RoutePort:
 		_enum = targetRoute.iface._enum
 
 		if(_enum == None):
-			return targetRoute.routeIn()
+			return targetRoute.routeIn(this.out)
 
 		# if(_enum == Enums.BPFnMain):
-		# 	return targetRoute.iface._proxyInput.routes.routeIn()
+		# 	return targetRoute.iface._proxyInput.routes.routeIn(this.out)
 
 		if(_enum == Enums.BPFnOutput):
 			cour = targetRoute.iface.node.update(None)
@@ -87,4 +97,4 @@ class RoutePort:
 
 			return targetRoute.iface._funcMain.node.routes.routeOut()
 
-		return targetRoute.routeIn()
+		return targetRoute.routeIn(this.out)

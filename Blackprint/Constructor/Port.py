@@ -29,13 +29,18 @@ class Port(CustomEvent):
 
 	_sync = True
 	_ghost = False
+	_isSlot = False
 	_name = None
-	_callAll = None
+	__call = None
+	_callDef = None
 	_cache = None
+	_config = None
 	_func = None
 	_hasUpdate = False
 	_hasUpdateCable = None
 	_node = None
+	_cable = None
+	_calling = False
 
 	def __init__(this, portName, type, def_, which, iface, feature):
 		CustomEvent.__init__(this)
@@ -46,6 +51,7 @@ class Port(CustomEvent):
 		this.iface = iface
 		this.cables = []
 		this._node = iface.node
+		this._isSlot = type == Types.Slot
 
 		if(feature == False):
 			this.default = def_
@@ -53,14 +59,10 @@ class Port(CustomEvent):
 
 		# this.value
 		if(feature == PortFeature.Trigger):
-			def callb():
-				def_(this)
+			# if(def == this._callAll): raise Exception("Logic error")
 
-				if(this.iface._enum != Enums.BPFnMain):
-					this.iface.node.routes.routeOut()
-
-			this.default_ = callb
-			this.default = lambda: Utils.runAsync(callb())
+			this._callDef = def_
+			this.default = lambda: Utils.runAsync(this._call())
 
 		elif(feature == PortFeature.StructOf):
 			this.struct = def_
@@ -91,20 +93,77 @@ class Port(CustomEvent):
 
 			cable.disconnect()
 
+	def _call(this, cable=None):
+		iface = this.iface
+
+		if(cable == None):
+			if(this._cable == None):
+				this._cable = Cable(this, this)
+
+			cable = this._cable
+
+		if(this._calling):
+			input = cable.input
+			output = cable.output
+			raise Exception(f"Circular call stack detected:\nFrom: {output.iface.title}.{output.name}\nTo: {input.iface.title}.{input.name})")
+
+		this._calling = cable._calling = True
+		this._callDef(this)
+		this._calling = cable._calling = False
+
+		if(iface._enum != Enums.BPFnMain):
+			iface.node.routes.routeOut()
+
+	def _callAll(this):
+		if(this.type == Types.Route):
+			cables = this.cables
+			cable = cables[0]
+
+			if(cable == None): return
+			if(cable.hasBranch): cable = cables[1]
+
+			# if(Blackprint.settings.visualizeFlow)
+			# 	cable.visualizeFlow()
+
+			if(cable.input == None): return
+			cable.input.routeIn(cable)
+		else:
+			node = this.iface.node
+			if(node.disablePorts): return
+			executionOrder = node.instance.executionOrder
+
+			for cable in this.cables:
+				target = cable.input
+				if(target == None): continue
+
+				# if(Blackprint.settings.visualizeFlow and !executionOrder.stepMode)
+				# 	cable.visualizeFlow()
+
+				if(target._name != None):
+					target.iface._funcMain.node.iface.output[target._name.name]._callAll()
+				else:
+					if(executionOrder.stepMode):
+						executionOrder._addStepPending(cable, 2)
+						continue
+
+					target.iface.input[target.name]._call(cable)
+
+			this.emit('call')
+
 	def createLinker(this):
 		# Callable port
 		if(this.source == 'output' and (this.type == FunctionType or this.type == Types.Route)):
+			# Disable sync
 			this._sync = False
 
-			if(this.type == FunctionType):
-				this._callAll = createCallablePort(this)
-			else:
-				this._callAll = createCallableRoutePort(this)
+			if(this.type != FunctionType):
+				this.isRoute = True
+				this.iface.node.routes.disableOut = True
 
-		# if(this.feature == PortFeature.Trigger):
-		# 	return this.default
+			# return lambda: Utils.runAsync(this._callAll())
+			return lambda: this._callAll()
 
-		# class PortLink already handle the linker
+		# "var prepare = " is in PortLink.php (offsetGet)
 
 	# Only for output port
 	def sync(this):
@@ -129,29 +188,32 @@ class Port(CustomEvent):
 			if(inp == None): continue
 			inp._cache = None
 
+			if(inp._cache != None and instance.executionOrder.stepMode):
+				inp._oldCache = inp._cache
+
 			inpIface = inp.iface
+			inpNode = inpIface.node
 			temp = EvPortValue(inp, this, cable)
 			inp.emit('value', temp)
 			inpIface.emit('port.value', temp)
 
+			nextUpdate = inpIface._requesting == False and len(inpNode.routes.inp) == 0
 			if(skipSync == False and thisNode._bpUpdating):
-				if(inpIface.node.partialUpdate):
+				if(inpNode.partialUpdate):
 					if(inp.feature == PortFeature.ArrayOf):
 						inp._hasUpdate = True
 						cable._hasUpdate = True
 					else: inp._hasUpdateCable = cable
 
-				if(inpIface._requesting == False):
-					instance.executionOrder.add(inp._node)
+				if(nextUpdate == False):
+					instance.executionOrder.add(inp._node, cable)
 
 			# Skip sync if the node has route cable
 			if(skipSync or thisNode._bpUpdating): continue
 
 			# print(f"\n4. {inp.name} = {inpIface.title}, {inpIface._requesting}")
 
-			node = inpIface.node
-			if(inpIface._requesting == False and len(node.routes.inp) == 0):
-				Utils.runAsync(node._bpUpdate())
+			if(nextUpdate): inpNode._bpUpdate()
 
 		if(singlePortUpdate):
 			thisNode._bpUpdating = False
@@ -194,7 +256,76 @@ class Port(CustomEvent):
 		if(severe and instance.throwOnError):
 			raise Exception(msg+"\n")
 
-		instance.emit(name, EvCableError(iface, port, target, msg))
+		instance._emit(name, EvCableError(iface, port, target, msg))
+
+	def assignType(this, type_):
+		if(type_ == None): raise Exception("Can't set type with undefined")
+
+		if(this.type != Types.Slot):
+			print(this.type)
+			raise Exception("Can only assign type to port with 'Slot' type, this port already has type")
+
+		# Skip if the assigned type is also Slot type
+		if(type_ == Types.Slot): return
+
+		# Check current output value type
+		if(this.value != None):
+			gettype = type(this.value)
+			pass_ = False
+
+			if(isinstance(this.value, type_)): pass_ = True
+			elif(type_ == Types.Any or type_ == gettype):
+				pass_ = True
+
+			if(pass_ == False): raise Exception("The output value of this port is not instance of type that will be assigned: {gettype.name} is not instance of {type.name}")
+
+		# Check connected cable's type
+		for cable in this.cables:
+			inputPort = cable.input
+			if(inputPort == None): continue
+
+			portType = inputPort.type
+			if(portType == Types.Any): 1 # pass
+			elif(portType == type_): 1 # pass
+			elif(portType == Types.Slot): 1 # pass
+			elif(Types.isType(portType) or Types.isType(type_)):
+				raise Exception("The target port's connection of this port is not instance of type that will be assigned: {portType.name} is not instance of {type_.name}")
+			else:
+				clazz = type_['type'] if type_['type'] != None else type_
+				if(not (issubclass(portType, clazz))):
+					raise Exception(f"The target port's connection of this port is not instance of type that will be assigned: {portType} is not instance of {clazz}")
+
+		if(type_['feature'] != None):
+			if(this.source == 'output'):
+				if(type_['feature'] == Port.Union):
+					type_ = Types.Any
+				elif(type_['feature'] == Port.Trigger):
+					type_ = Types.Function
+				elif(type_['feature'] == Port.ArrayOf):
+					type_ = Types.Array
+				elif(type_['feature'] == Port.Default):
+					type_ = type_['type']
+			else:
+				if(type_['type'] == None): raise Exception("Missing type for port feature")
+
+				this.feature = type_['feature']
+				this.type = type_['type']
+
+				if(type_['feature'] == Port.StructOf):
+					this.struct = type_['value']
+					# this.classAdd .= "BP-StructOf "
+
+			# if(type.virtualType != None)
+			# 	this.virtualType = type.virtualType
+		else: this.type = type_
+
+		# Trigger `connect` event for every connected cable
+		for cable in this.cables:
+			if(cable.disabled or cable.target == None): continue
+			cable._connected()
+
+		this._config = type_
+		this.emit('type.assigned')
 
 	def connectCable(this, cable: Cable):
 		if(cable.isRoute):

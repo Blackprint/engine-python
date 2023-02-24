@@ -1,10 +1,12 @@
 import re
-import os
 # from .Utils import Utils
+from .Constructor import InstanceEvent
+from .Types import Types
 
 class Internal:
 	nodes = {}
 	interface = {}
+	events = {}
 	# namespace = []
 
 	# @staticmethod
@@ -20,7 +22,7 @@ class Internal:
 	# 		if(os.path.isfile(temp)):
 	# 			path_import(value, path)
 	# 			temp = "BPNode/$path".replace('/', '\\')
-	# 			Utils.deepProperty(Internal.nodes, path.split('/'), temp)
+	# 			Utils.setDeepProperty(Internal.nodes, path.split('/'), temp)
 	# 			return
 
 def registerNode(namespace: str): # Decorator
@@ -48,6 +50,22 @@ def registerInterface(templatePath: str): # Decorator
 # 	if fullPath not in Internal.namespace:
 # 		Internal.namespace.append(fullPath)
 
+def registerEvent(namespace, options):
+	if(re.search(r'/\s/', namespace) != None):
+		raise Exception(f"Namespace can't have space character: '{namespace}'")
+
+	schema = options['schema']
+	if(schema == None):
+		raise Exception(f"Registering an event must have a schema. If the event doesn't have a schema or dynamically created from an instance you may not need to do this registration.")
+
+	for obj in schema:
+		# Must be a data type
+		# or type from Blackprint.Port.{Feature}
+		if(not isinstance(obj, type) and obj.feature == None) and not Types.isType(obj):
+			raise Exception(f"Unsupported schema type for field 'key' in '{namespace}'")
+	
+	Internal.events[namespace] = InstanceEvent(options)
+
 # Below is for internal only
 class EvError:
 	def __init__(this, type, data):
@@ -68,7 +86,8 @@ class EvEnv:
 		this.value = value
 
 class EvVariableNew:
-	def __init__(this, scope, id):
+	def __init__(this, instance, scope, id):
+		this.instance = instance
 		this.scope = scope
 		this.id = id
 
