@@ -146,7 +146,7 @@ class BPFunction(CustomEvent): # <= _funcInstance
 
 			elif(eventName == 'node.delete'):
 				index = Utils.findFromList(fromNode.iface.bpInstance.ifaceList, obj.iface)
-				if(index == False):
+				if(index == None):
 					raise Exception("Failed to get node index")
 
 				iface = nodeInstance.ifaceList[index]
@@ -286,7 +286,7 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 		used = this._funcInstance.used
 
 		i = Utils.findFromList(used, this.iface)
-		if(i != False): used.pop(i)
+		if(i != None): used.pop(i)
 
 		this.iface.bpInstance.destroy()
 
@@ -478,7 +478,7 @@ class BPFnInOut(Interface):
 		outputPort = nodeB.createPort('output', name, portType)
 
 		if(portType == FunctionType):
-			inputPort = nodeA.createPort('input', name, Port.Trigger(lambda: outputPort._callAll()))
+			inputPort = nodeA.createPort('input', name, Port.Trigger(lambda port: outputPort._callAll()))
 		else: inputPort = nodeA.createPort('input', name, portType)
 
 		if(this.type == 'bp-fn-input'):

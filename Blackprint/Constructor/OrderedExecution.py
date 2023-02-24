@@ -40,7 +40,7 @@ class OrderedExecution:
 		this.list = size*[None]
 
 		# Cable who trigger the execution order's update (with stepMode)
-		this._tCable = map() # Map { Node : Set<Cable> }
+		this._tCable = {} # Map { Node : Set<Cable> }
 
 	def isPending(this, node):
 		return node in this.list
@@ -215,7 +215,8 @@ class OrderedExecution:
 		elif(len(_pRequestLast) != 0):
 			[ node, cableCall ] = _pRequestLast.pop()
 
-			node.update()
+			cour = node.update(None)
+			if(asyncio.iscoroutine(cour)): asyncio.run(cour)
 
 			if(cableCall != None):
 				cableCall.input._call(cableCall)

@@ -14,3 +14,4 @@ from .RoutePort import RoutePort
 from .Node import Node
 from .Interface import Interface
 from .Engine import Engine
+from .PortGhost import OutputPort, InputPort

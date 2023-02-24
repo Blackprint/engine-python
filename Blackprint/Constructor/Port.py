@@ -1,3 +1,4 @@
+import asyncio
 from types import FunctionType
 
 from ..Internal import EvCableError, EvPortValue
@@ -31,7 +32,7 @@ class Port(CustomEvent):
 	_ghost = False
 	_isSlot = False
 	_name = None
-	__call = None
+	_call_ = None
 	_callDef = None
 	_cache = None
 	_config = None
@@ -291,19 +292,22 @@ class Port(CustomEvent):
 			elif(Types.isType(portType) or Types.isType(type_)):
 				raise Exception("The target port's connection of this port is not instance of type that will be assigned: {portType.name} is not instance of {type_.name}")
 			else:
-				clazz = type_['type'] if type_['type'] != None else type_
+				if(isinstance(type_, dict) and type_['type'] != None):
+					clazz = type_['type']
+				else: clazz = type_
+
 				if(not (issubclass(portType, clazz))):
 					raise Exception(f"The target port's connection of this port is not instance of type that will be assigned: {portType} is not instance of {clazz}")
 
-		if(type_['feature'] != None):
+		if(isinstance(type_, dict) and type_['feature'] != None):
 			if(this.source == 'output'):
-				if(type_['feature'] == Port.Union):
+				if(type_['feature'] == PortFeature.Union):
 					type_ = Types.Any
-				elif(type_['feature'] == Port.Trigger):
-					type_ = Types.Function
-				elif(type_['feature'] == Port.ArrayOf):
-					type_ = Types.Array
-				elif(type_['feature'] == Port.Default):
+				elif(type_['feature'] == PortFeature.Trigger):
+					type_ = FunctionType
+				elif(type_['feature'] == PortFeature.ArrayOf):
+					type_ = list
+				elif(type_['feature'] == PortFeature.Default):
 					type_ = type_['type']
 			else:
 				if(type_['type'] == None): raise Exception("Missing type for port feature")
@@ -311,7 +315,7 @@ class Port(CustomEvent):
 				this.feature = type_['feature']
 				this.type = type_['type']
 
-				if(type_['feature'] == Port.StructOf):
+				if(type_['feature'] == PortFeature.StructOf):
 					this.struct = type_['value']
 					# this.classAdd .= "BP-StructOf "
 
@@ -484,35 +488,3 @@ class Port(CustomEvent):
 
 		port.cables.append(cable)
 		return this.connectCable(cable)
-
-def createCallablePort(port):
-	def loop():
-		cables = port.cables
-		for cable in cables:
-			target = cable.input
-			if(target == None):
-				continue
-
-			if(target._name != None):
-				target.iface._funcMain.node.output[target._name.name]()
-			else: target.iface.input[target.name].default_()
-
-		port.emit('call')
-
-	def callable():
-		if(port.iface.node.disablePorts): return
-		Utils.runAsync(loop())
-
-	return callable
-
-def createCallableRoutePort(port):
-	port.isRoute = True
-	port.iface.node.routes.disableOut = True
-
-	def callable():
-		cable = port.cables[0]
-		if(cable == None): return
-
-		cable.input.routeIn()
-
-	return callable

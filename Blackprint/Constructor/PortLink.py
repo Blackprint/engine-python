@@ -1,3 +1,5 @@
+import re
+
 from types import FunctionType
 from typing import Dict
 
@@ -125,12 +127,11 @@ class PortLink(MutableMapping):
 		# else: output ports
 
 		# This may get called if the port is lazily assigned with Slot port feature
-		if(port.type == Types.Function):
-			if(port.__call == None):
-				def callback():port._callAll()
-				port.__call = callback
+		if(port.type == FunctionType):
+			if(port._call_ == None):
+				port._call_ = lambda: port._callAll()
 
-			return port.__call
+			return port._call_
 
 		return port.value
 
@@ -157,7 +158,8 @@ class PortLink(MutableMapping):
 				raise Exception("Port type need to be assigned before giving any value")
 			elif isinstance(val, port.type):
 				pass
-			else: raise Exception(f"Can't validate type: {type(val).__name__} != {port.type.__name__}")
+			else:
+				raise Exception(f"Can't validate type: {type(val).__name__} != {port.type.__name__}")
 
 		# print(f"\n3. {port.iface.title}.{port.name} = {val}")
 
@@ -193,13 +195,13 @@ class PortLink(MutableMapping):
 		if(portName == ''):
 			raise Exception("Port name can't be empty")
 
-		if(this._which == 'output' and val['feature'] != None):
+		if(this._which == 'output' and (isinstance(val, dict) and val['feature'] != None)):
 			if(val['feature'] == Port.Union):
 				val = Types.Any
 			elif(val['feature'] == Port.Trigger):
-				val = Types.Function
+				val = FunctionType
 			elif(val['feature'] == Port.ArrayOf):
-				val = Types.Array
+				val = list
 			elif(val['feature'] == Port.Default):
 				val = val['type']
 

@@ -50,7 +50,7 @@ class BPEnvGetSet(Interface):
 			Environment.set(data['name'], '')
 
 		name = this.data['name']
-		rules = Environment._rules[name]
+		rules = Environment._rules[name] if name in Environment._rules else None
 
 		# Only allow connection to certain node namespace
 		if(rules != None):

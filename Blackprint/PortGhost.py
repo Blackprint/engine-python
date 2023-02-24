@@ -1,15 +1,15 @@
 from .Interface import Interface
 from .Node import Node
 from .Utils import Utils
-from .Constructor.Port import PortClass
+from .Constructor.Port import Port
 
-class PortGhost(PortClass):
+class PortGhost(Port):
 	fakeIface = None
 	def destroy(this):
 		this.disconnectAll(False)
 
 class fakeInstance:
-	def emit():
+	def emit(this, a, b):
 		pass
 
 class fakeNode:
@@ -25,7 +25,7 @@ class fakeIface:
 	output = []
 	def __init__(this):
 		this.node = fakeNode()
-	def emit():
+	def emit(this, a, b):
 		pass
 
 _fakeIface = fakeIface()

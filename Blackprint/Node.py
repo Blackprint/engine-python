@@ -120,6 +120,6 @@ class Node(CustomEvent):
 	def imported(this, data): pass
 	def update(this, cable): pass
 	def request(this, cable): pass
-	def initPorts(this): pass
+	def initPorts(this, data): pass
 	def destroy(this): pass
 	def syncIn(this, id, data): pass

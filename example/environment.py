@@ -1,8 +1,11 @@
 import Blackprint
 import BPNode # Register our nodes from BPNode folder
 
-Blackprint.Environment.set('TEST', 12345)
-Blackprint.Environment.imports({ 'TEST2': 54321 })
+import sys
+sys.tracebacklimit = 2
+
+Blackprint.Environment.set('TEST', '12345')
+Blackprint.Environment.imports({ 'TEST2': '54321' })
 Blackprint.Environment.rule('TEST2', {
 	'allowGet': [], # empty = disable any connection
 	# 'allowGet'=> [], # empty = disable any connection
@@ -19,17 +22,17 @@ TEST2 = instance.iface['test2'] # input
 TEST2_ = instance.iface['test2Out'] # output
 
 logger = instance.iface['myLogger']
-print("\n\n>> I got the output value: " + logger.log())
+print("\n\n>> I got the output value: " + logger.log)
 
 print("\n\n>> I'm writing env value 'hello' into the node")
-out = Blackprint.OutputPort(Blackprint.Types.String)
+out = Blackprint.OutputPort(str)
 out.value = 'hello'
 TEST.ref.IInput['Val'].connectPort(out)
-print(".n\n>> I got the output value: " + logger.log())
+print(".n\n>> I got the output value: " + logger.log)
 
 print("\n\n>> I'm trying to connect ruled environment node, this must can't be connected")
 try:
 	TEST2_.output['Val'].connectPort(logger.input['Any'])
 	print("Error: the cable was connected")
-except e:
+except Exception:
 	print("Looks OK")

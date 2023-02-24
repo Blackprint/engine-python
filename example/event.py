@@ -1,6 +1,9 @@
 import Blackprint
 import BPNode # Register our nodes from BPNode folder
 
+import sys
+# sys.tracebacklimit = 2
+
 # == Import JSON after all nodes was registered ==
 # You can import the JSON to Blackprint Sketch if you want to view the nodes visually
 instance = Blackprint.Engine()
@@ -29,4 +32,4 @@ print("\n>> I got the output value: " + logger.log)
 print("\n\n>> I'm emitting event")
 data = {'test': 123, 'other': 234}
 instance.events.emit("TestEvent", data)
-print("\n\n>> I got the output value: " + logger.log())
+print("\n\n>> I got the output value: " + logger.log)

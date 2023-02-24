@@ -51,17 +51,17 @@ class CustomEvent:
 			del this._once[eventName]
 			return
 
-		_events = this._events[eventName]
-		if(_events != None):
-			i = Utils.findFromList(_events[eventName], func)
-			if(i != False):
-				_events[eventName].pop(i)
+		if(eventName in this._events):
+			_events = this._events[eventName]
+			i = Utils.findFromList(_events, func)
+			if(i != None):
+				_events.pop(i)
 
-		_once = this._once[eventName]
-		if(_once != None):
-			i = Utils.findFromList(_once[eventName], func)
-			if(i != False):
-				_once[eventName].pop(i)
+		if(eventName in this._once):
+			_once = this._once[eventName]
+			i = Utils.findFromList(_once, func)
+			if(i != None):
+				_once.pop(i)
 
 	def emit(this, eventName, data=None):
 		events = this._events

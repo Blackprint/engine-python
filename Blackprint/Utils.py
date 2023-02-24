@@ -25,10 +25,10 @@ class Utils:
 			if(key not in obj):
 				return None
 
+			obj = obj[key]
+
 			i -= 1
 			if(i == 0): break
-
-			obj = obj[key]
 
 		return obj
 
@@ -87,7 +87,7 @@ class Utils:
 		try:
 			return list.index(item)
 		except ValueError:
-			return -1
+			return None
 
 	_asyncTask = set()
 	def runAsync(corountine):

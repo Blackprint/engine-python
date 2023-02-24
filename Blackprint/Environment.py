@@ -11,7 +11,7 @@ class Environment:
 
 	# arr = ["KEY": "value"]
 	@staticmethod
-	def imports(arr):
+	def imports(arr: Dict[str, str]):
 		Environment._noEvent = True
 		for key, value in arr.items():
 			Environment.set(key, value)
@@ -24,6 +24,9 @@ class Environment:
 		if(re.search(r"[^A-Z_][^A-Z0-9_]", key) != None):
 			raise Exception(f"Environment must be uppercase and not contain any symbol except underscore, and not started by a number. But got: {key}")
 
+		if(type(val) != str):
+			raise Exception("Value must be a string")
+		
 		map = Environment.map
 		map[key] = val
 
@@ -43,7 +46,7 @@ class Environment:
 	# options = {allowGet: {}, allowSet: {}}
 	@staticmethod
 	def rule(name, options):
-		if(name in Environment.map):
+		if(not name in Environment.map):
 			raise Exception(f"'{name}' was not found on Blackprint.Environment, maybe it haven't been added or imported")
 
 		if(name in Environment._rules):

@@ -92,12 +92,12 @@ class Cable:
 			elif(input.out == this): input.out = None
 
 			i = Utils.findFromList(output.inp, this)
-			if(i != -1):
+			if(i != None):
 				output.inp.pop(i)
 
 			elif(input != None):
 				i = Utils.findFromList(input.inp, this)
-				if(i != -1):
+				if(i != None):
 					input.inp.pop(i)
 
 			this.connected = False
@@ -130,7 +130,7 @@ class Cable:
 		# Remove from cable owner
 		if(owner and (not which or owner == which)):
 			i = Utils.findFromList(owner.cables, this)
-			if(i != -1):
+			if(i != None):
 				owner.cables.pop(i)
 
 			if(this.connected):
@@ -148,7 +148,7 @@ class Cable:
 		# Remove from connected target
 		if(target and this.connected and (not which or target == which)):
 			i = Utils.findFromList(target.cables, this)
-			if(i != -1):
+			if(i != None):
 				target.cables.pop(i)
 
 			temp = EvPortValue(target, owner, this)

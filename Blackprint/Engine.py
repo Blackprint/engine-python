@@ -38,14 +38,14 @@ class Engine(CustomEvent):
 		this._eventsInsNew = False
 		this._destroyed_ = False
 
-		this.executionOrder = OrderedExecution()
+		this.executionOrder = OrderedExecution(this)
 		this.events = InstanceEvents(this)
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
 		i = Utils.findFromList(list, iface)
 
-		if(i != -1):
+		if(i != None):
 			list.pop(i)
 		else:
 			if(this.throwOnError):
@@ -317,7 +317,7 @@ class Engine(CustomEvent):
 
 		return got
 
-	def createNode(this, namespace, options=None, nodes=None):
+	def createNode(this, namespace, options={}, nodes=None):
 		func = Internal.nodes.get(namespace)
 
 		# Try to load from registered namespace folder if exist
@@ -359,7 +359,7 @@ class Engine(CustomEvent):
 		savedData = options['data'] if 'data' in options else None
 		portSwitches = options['output_sw'] if 'output_sw' in options else None
 
-		if(options['i'] != None):
+		if('i' in options):
 			iface.i = options['i']
 
 			ii = len(this.ifaceList)

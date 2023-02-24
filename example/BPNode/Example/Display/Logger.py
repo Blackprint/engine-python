@@ -4,6 +4,7 @@ from ...utils import colorLog
 
 @Blackprint.registerNode('Example/Display/Logger')
 class Logger(Blackprint.Node):
+	iface: 'LoggerIFace' = None
 	input = {
 		'Any': Blackprint.Port.ArrayOf(Blackprint.Types.Any)
 	}
@@ -45,7 +46,7 @@ class Logger(Blackprint.Node):
 
 	# Remote sync in
 	def syncIn(this, id, data):
-		if(id == 'log'): this.iface.log(data)
+		if(id == 'log'): this.iface.log = data
 
 
 @Blackprint.registerInterface('BPIC/Example/Logger')

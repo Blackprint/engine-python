@@ -13,12 +13,12 @@ from ..Internal import registerNode, registerInterface
 @registerNode('BP/Event/Listen')
 class BPEventListen(Node):
 	# Defined below this class
-	Input = {
-		"Limit": Port.Default(Types.Number, 0),
+	input = {
+		"Limit": Port.Default(int, 0),
 		"Reset": Port.Trigger(lambda port: port.iface.node.resetLimit()),
 		"Off": Port.Trigger(lambda port: port.iface.node.offEvent()),
 	}
-	Output = {}
+	output = {}
 
 	# @var IEventListen 
 	iface = None
@@ -73,7 +73,7 @@ class BPEventListen(Node):
 @registerNode('BP/Event/Emit')
 class BPEventEmit(Node):
 	# Defined below this class
-	Input = {
+	input = {
 		"Emit": Port.Trigger(lambda port: port.iface.node.trigger()),
 	}
 
@@ -93,7 +93,7 @@ class BPEventEmit(Node):
 
 	def initPorts(this, data): this.iface.initPorts(data)
 	def trigger(this):
-		data = [] # Copy data from input ports
+		data = {} # Copy data from input ports
 		IInput = this.iface.input
 		Input = this.input
 
@@ -163,15 +163,13 @@ class BPEventListenEmit(Interface):
 			this.data['namespace']
 		))
 
-
-
 @registerInterface('BPIC/BP/Event/Listen')
 class IEventListen(BPEventListenEmit):
 	_listener = None
 	# @var BPEventListen 
 	node = None
 	def initPorts(this, data):
-		BPEventListenEmit.initPorts(data)
+		BPEventListenEmit.initPorts(this, data)
 
 		if(this._listener): raise Exception("This node already listen to an event")
 		this._listener = lambda ev: this.node.eventUpdate(ev)

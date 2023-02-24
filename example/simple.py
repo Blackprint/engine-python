@@ -1,6 +1,9 @@
 import Blackprint
 import BPNode # Register our nodes from BPNode folder
 
+import sys
+sys.tracebacklimit = 2
+
 # == Import JSON after all nodes was registered ==
 # You can import the JSON to Blackprint Sketch if you want to view the nodes visually
 instance = Blackprint.Engine()

@@ -68,7 +68,7 @@ class BPVariable(CustomEvent):
 	# this.totalSet = 0
 	# this.totalGet = 0
 
-	def __init__(this, id, options=None):
+	def __init__(this, id, options={}):
 		CustomEvent.__init__(this)
 
 		id = re.sub(r'/^\/|\/$/m', '', id)
@@ -137,7 +137,7 @@ class BPVarGetSet(Interface):
 
 		construct = Utils.getDeepProperty(scope, name.split('/'))
 
-		if(name not in construct):
+		if(construct == None):
 			if(scopeId == VarScope.public): _scopeName = 'public'
 			elif(scopeId == VarScope.private): _scopeName = 'private'
 			elif(scopeId == VarScope.shared): _scopeName = 'shared'
@@ -194,13 +194,13 @@ class BPVarGetSet(Interface):
 		if(temp == None): return
 
 		i = Utils.findFromList(temp.used, this)
-		if(i != False): temp.used.pop(i)
+		if(i != None): temp.used.pop(i)
 
 		listener = this._bpVarRef.listener
 		if(listener == None): return
 
 		i = Utils.findFromList(listener, this)
-		if(i != False): listener.pop(i)
+		if(i != None): listener.pop(i)
 
 @registerInterface('BPIC/BP/Var/Get')
 class IVarGet(BPVarGetSet):
@@ -243,7 +243,7 @@ class IVarGet(BPVarGetSet):
 			def callback(ev): ref['Val'] = temp._value
 			this._onChanged = callback
 
-		if(temp.type != Types.Function):
+		if(temp.type != FunctionType):
 			node.output['Val'] = temp._value
 
 		temp.on(this._eventListen, this._onChanged)
@@ -278,10 +278,7 @@ class IVarSet(BPVarGetSet):
 			node.deletePort('input', 'Val')
 
 		if(temp.type == FunctionType):
-			def call(port):
-				temp.emit('call')
-
-			node.createPort('input', 'Val', Port.Trigger(call))
+			node.createPort('input', 'Val', Port.Trigger(lambda port: temp.emit('call')))
 
 		else: node.createPort('input', 'Val', temp.type)
 

@@ -3,20 +3,21 @@ from ..Nodes.Enums import Enums
 from .CustomEvent import CustomEvent
 
 class InstanceEvents(CustomEvent):
-	list = []
+	list = {}
 	def __init__(this, instance):
+		CustomEvent.__init__(this)
 		this.instance = instance
 
 	# No need to override like engine-js as it's already performant
 	# function emit(eventName, obj): }
 
-	def createEvent(this, namespace, options=[]):
+	def createEvent(this, namespace, options={}):
 		if(namespace in this.list): return
 		if(re.search(r'/\s/', namespace) != None):
 			raise Exception(f"Namespace can't have space character: '{namespace}'")
 
 		this.list[namespace] = InstanceEvent({
-			'schema': options['schema'] or [],
+			'schema': options['schema'] if 'schema' in options else [],
 		})
 
 	def _renameFields(this, namespace, name, to):
