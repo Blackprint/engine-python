@@ -98,7 +98,7 @@ class Node(CustomEvent):
 		cour = this.update(None)
 		if(asyncio.iscoroutine(cour)): asyncio.run(cour)
 		this._bpUpdating = False
-		# this.iface.emit('updated')
+		this.iface.emit('updated')
 
 		if(this.routes.out == None):
 			if(isMainFuncNode and thisIface.node.routes.out != None):
