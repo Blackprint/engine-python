@@ -1,6 +1,7 @@
 import re
 from ..Nodes.Enums import Enums
 from .CustomEvent import CustomEvent
+from ..Types import Types
 
 class InstanceEvents(CustomEvent):
 	list = {}
@@ -16,9 +17,13 @@ class InstanceEvents(CustomEvent):
 		if(re.search(r'/\s/', namespace) != None):
 			raise Exception(f"Namespace can't have space character: '{namespace}'")
 
-		this.list[namespace] = InstanceEvent({
-			'schema': options['schema'] if 'schema' in options else [],
-		})
+		schema = []
+		if('schema' in options):
+			list = options['schema']
+			for value in list:
+				schema[value] = Types.Any
+
+		this.list[namespace] = InstanceEvent({ 'schema': schema })
 
 	def _renameFields(this, namespace, name, to):
 		schema = this.list[namespace]

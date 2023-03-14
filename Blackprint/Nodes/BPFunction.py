@@ -48,8 +48,10 @@ class BPFunction(CustomEvent): # <= _funcInstance
 			this.structure = options['structure']
 		else:
 			this.structure = {
-				'BP/Fn/Input': [{'i': 0}],
-				'BP/Fn/Output': [{'i': 1}],
+				'instance': {
+					'BP/Fn/Input': [{'i': 0}],
+					'BP/Fn/Output': [{'i': 1}],
+				},
 			}
 
 		temp = this

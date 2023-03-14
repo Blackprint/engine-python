@@ -1,3 +1,9 @@
+# 0.8.13
+
+### Bug Fix
+- Fix error for event and function node
+- Fix imported instance event
+
 # 0.8.12
 
 ### Features
