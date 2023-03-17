@@ -43,16 +43,16 @@ class Hello(Blackprint.Node):
     # Set the output port structure for your node (Optional)
     output = {
         'Changed': types.FunctionType,
-        # Callable -> this.output['Changed']()
+        # this.output['Changed']() -- To call every connected port
 
         'Output': int,
-        # this.output['Value'] = 246
+        # this.output['Output'] = 246 -- To assign value to output port
     }
 
     # Set the input port structure for your node (Optional)
     input = {
         'Multiply': int,
-        # val = this.output['Value']
+        # val = this.input['Multiply'] -- To obtain value from input port
     }
 
     def __init__(instance):
@@ -144,5 +144,5 @@ This repository provide an example with the JSON too, and you can try it with Py
 # Change your working directory into empty folder first
 $ git clone --depth 1 https://github.com/Blackprint/engine-python .
 $ pip install -e .
-$ py ./example/simple.py
+$ python ./example/simple.py
 ```
