@@ -1,3 +1,8 @@
+# 0.8.14
+
+### Bug Fix
+- Fix unrecognized type when determining port type
+
 # 0.8.13
 
 ### Bug Fix
