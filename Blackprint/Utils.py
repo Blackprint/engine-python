@@ -61,7 +61,7 @@ class Utils:
 				def_ = val['value']
 
 		# Give default value for each primitive type
-		elif(type == int):
+		elif(type == int or type == float):
 			def_ = 0
 		elif(type == bool):
 			def_ = False
@@ -69,13 +69,13 @@ class Utils:
 			def_ = ''
 		elif(type == list):
 			def_ = []
-		elif(type == FunctionType): 0
-		elif(type == Types.Any): 0 # Any
-		elif(type == Types.Slot): 0
-		elif(type == Types.Route): 0
-		elif(feature == None):
-			print(type)
-			raise Exception("Unrecognized port type or port feature", 1)
+		# elif(type == FunctionType): 0
+		# elif(type == Types.Any): 0 # Any
+		# elif(type == Types.Slot): 0
+		# elif(type == Types.Route): 0
+		# elif(feature == None):
+		# 	print(type)
+		# 	raise Exception("Unrecognized port type or port feature", 1)
 		# else{
 		# 	def = port
 		# 	type = str
