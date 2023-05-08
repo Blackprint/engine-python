@@ -192,8 +192,10 @@ class OrderedExecution:
 
 			# cable.visualizeFlow()
 			currentIface._requesting = True
-			current.request(cable)
-			currentIface._requesting = False
+			try:
+				current.request(cable)
+			finally:
+				currentIface._requesting = False
 
 			inpIface = cable.input.iface
 

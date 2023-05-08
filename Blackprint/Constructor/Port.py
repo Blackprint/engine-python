@@ -109,8 +109,10 @@ class Port(CustomEvent):
 			raise Exception(f"Circular call stack detected:\nFrom: {output.iface.title}.{output.name}\nTo: {input.iface.title}.{input.name})")
 
 		this._calling = cable._calling = True
-		this._callDef(this)
-		this._calling = cable._calling = False
+		try:
+			this._callDef(this)
+		finally:
+			this._calling = cable._calling = False
 
 		if(iface._enum != Enums.BPFnMain):
 			iface.node.routes.routeOut()

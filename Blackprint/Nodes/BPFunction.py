@@ -413,8 +413,10 @@ class FnMain(Interface):
 			newInstance._mainInstance.emit(eventName, ev)
 
 			bpFunction._syncing = True
-			bpFunction._onFuncChanges(eventName, ev, this.node)
-			bpFunction._syncing = False
+			try:
+				bpFunction._onFuncChanges(eventName, ev, this.node)
+			finally:
+				bpFunction._syncing = False
 
 		this._save = _save
 		this.bpInstance.on('cable.connect cable.disconnect node.created node.delete node.id.changed port.default.changed _port.split _port.unsplit _port.resync.allow _port.resync.disallow', this._save)
