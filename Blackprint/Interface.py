@@ -28,6 +28,7 @@ class Interface(CustomEvent):
 	_requesting = False
 	_enum = None
 	_dynamicPort = False
+	_bpDestroy = False
 
 	def __init__(this, node):
 		CustomEvent.__init__(this)

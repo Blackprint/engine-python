@@ -5,7 +5,8 @@ from .Constructor.CustomEvent import CustomEvent
 from .Environment import Environment
 from .Event import Event
 from .Types import Types
-from .Internal import registerNode, registerInterface #, registerNamespace
+from .Internal import registerNode, registerInterface, Internal #, registerNamespace
+from .Utils import Utils
 
 # Possible circular dependent, we need to specify the import order to avoid partially initialized module
 from .Port.PortFeature import Port

@@ -25,6 +25,12 @@ class Node(CustomEvent):
 	_funcInstance = None
 	_contructed = True
 
+	# For remote control
+	_syncronizing = None
+	syncThrottle = 0
+	_syncWait = None
+	_syncHasWait = None
+
 	def __init__(this, instance):
 		CustomEvent.__init__(this)
 		this.instance: 'Engine' = instance
@@ -112,8 +118,9 @@ class Node(CustomEvent):
 
 			ref.next()
 
-	# ToDo: remote-control PHP
-	def syncOut(this, id, data): pass
+	def syncOut(this, id, data):
+		if(this.instance._remote != None):
+			this.instance._remote.BpSyncOut(this, id, data)
 
 	# To be overriden by module developer
 	def init(this): pass
