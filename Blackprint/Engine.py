@@ -36,13 +36,16 @@ class Engine(CustomEvent):
 		this._funcMain: FnMain = None
 		this._mainInstance = None
 		this._importing = False
-		this._remote = False
+		this._remote = None
 		this._locked_ = False
 		this._eventsInsNew = False
 		this._destroyed_ = False
 
 		this.executionOrder = OrderedExecution(this)
 		this.events = InstanceEvents(this)
+
+		# For remote control
+		this.syncDataOut = True
 
 	def deleteNode(this, iface):
 		list = this.ifaceList
@@ -66,7 +69,9 @@ class Engine(CustomEvent):
 
 		check = Temp.list
 		for val in check:
-			portList = iface[val]
+			if(not hasattr(iface, val)): continue
+
+			portList = getattr(iface, val)
 			for port in portList:
 				portList[port].disconnectAll(this._remote != None)
 
@@ -79,12 +84,13 @@ class Engine(CustomEvent):
 		if(routes.out != None): routes.out.disconnect()
 
 		# Delete reference
-		del this.iface[iface.id]
-		del this.ref[iface.id]
+		if(iface.id != None and iface.id != ""):
+			del this.iface[iface.id]
+			del this.ref[iface.id]
 
-		parent = iface.node._funcInstance
-		if(parent != None):
-			del parent.rootInstance.ref[iface.id]
+			parent = iface.node._funcInstance
+			if(parent != None):
+				del parent.rootInstance.ref[iface.id]
 
 		this._emit('node.deleted', eventData)
 
