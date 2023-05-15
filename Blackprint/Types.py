@@ -1,7 +1,11 @@
+class Any: _internal = True
+class Slot: _internal = True
+class Route: _internal = True
+
 class Types:
-	Any = object()
-	Slot = object()
-	Route = object()
+	Any = Any
+	Slot = Slot
+	Route = Route
 
 	@staticmethod
 	def isType(type):

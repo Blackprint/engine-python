@@ -118,7 +118,7 @@ class Engine(CustomEvent):
 		if(not('clean' in options)): options['clean'] = True
 		if(not('noEnv' in options)): options['noEnv'] = False
 
-		appendMode = 'appendMode' in options and options['appendMode'] == False
+		appendMode = options['appendMode']
 		if(not appendMode): this.clearNodes()
 		reorderInputPort = []
 

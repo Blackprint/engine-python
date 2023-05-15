@@ -21,6 +21,10 @@ class Node(CustomEvent):
 	routes: RoutePort = None
 	ref: References = None
 
+	# static
+	type = None
+	interfaceSync = None
+
 	_bpUpdating = False
 	_funcInstance = None
 	_contructed = True
