@@ -15,13 +15,13 @@ class Multiply(Blackprint.Node):
 	# Define input port here
 	input = {
 		'Exec': Blackprint.Port.Trigger(Exec),
-		'A': int,
+		'A': float,
 		'B': Blackprint.Types.Any,
 	}
 
 	# Define output port here
 	output = {
-		'Result': int,
+		'Result': float,
 	}
 
 	def __init__(this, instance):

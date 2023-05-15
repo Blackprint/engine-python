@@ -9,6 +9,11 @@ class Simple(Blackprint.Node):
 		'Value': str,
 	}
 
+	# Create interface for puppet node
+	interfaceSync = [
+		{'type': "text_in", 'id': "value", 'placeholder': "Type text here..."},
+	]
+
 	def __init__(this, instance):
 		Blackprint.Node.__init__(this, instance)
 
@@ -28,8 +33,11 @@ class Simple(Blackprint.Node):
 	# Remote sync in
 	def syncIn(this, id, data):
 		if(id == 'data'):
-			this.iface.data.value = data.value
-			this.iface.changed(data.value)
+			this.iface.data.value = data['value']
+			this.iface.changed(data['value'])
+		elif(id == 'value'):
+			this.iface.data.value = data
+			this.iface.changed(data)
 
 class InputIFaceData:
 	def __init__(this, iface):

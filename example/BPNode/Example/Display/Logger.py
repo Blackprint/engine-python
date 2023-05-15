@@ -9,6 +9,11 @@ class Logger(Blackprint.Node):
 		'Any': Blackprint.Port.ArrayOf(Blackprint.Types.Any)
 	}
 
+	# Create interface for puppet node
+	interfaceSync = [
+		{'type': "text_out", 'id': "log", 'placeholder': "...", 'tooltip': "Output will written here"},
+	]
+
 	def __init__(this, instance):
 		super(Logger, this).__init__(instance)
 
@@ -26,7 +31,7 @@ class Logger(Blackprint.Node):
 			this.iface.log = val
 
 	def init(this):
-		def onCableConnection():
+		def onCableConnection(ev):
 			colorLog("Logger ("+(this.iface.id or '')+"):", "A cable was changed on Logger, now refresing the input element")
 
 		# Let's show data after new cable was connected or disconnected

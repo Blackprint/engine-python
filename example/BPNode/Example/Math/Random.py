@@ -1,4 +1,4 @@
-from random import randint
+from random import uniform
 import Blackprint
 from ...utils import colorLog
 
@@ -6,14 +6,14 @@ def ReSeed(port):
 	node = port.iface.node
 
 	node.executed = True
-	node.output['Out'] = randint(0, 100)
+	node.output['Out'] = uniform(0, 100)
 
 	# print("Re-seed called")
 
 @Blackprint.registerNode('Example/Math/Random')
 class Random(Blackprint.Node):
 	output = {
-		'Out': int
+		'Out': float
 	}
 
 	input = {
