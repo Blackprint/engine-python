@@ -1,23 +1,15 @@
-from types import FunctionType
 from ..Node import Node
 from ..Interface import Interface
 from ..Nodes.Enums import Enums
-from ..Constructor.CustomEvent import CustomEvent
 from ..Constructor.Port import Port as PortClass
 from ..Utils import Utils
 from ..Internal import registerNode, registerInterface
 from ..Types import Types
 from ..Port.PortFeature import Port
-import re
+from .BPVariable_init import BPVariable, VarScope
 
 # Don't delete even unused, this is needed for importing the internal node
 from .Environments import BPEnvGet
-
-# For internal library use only
-class VarScope:
-	public = 0
-	private = 1
-	shared = 2
 
 @registerNode('BP/Var/Set')
 class VarSet(Node):
@@ -61,46 +53,6 @@ class VarGet(Node):
 		iface._enum = Enums.BPVarGet
 
 	def destroy(this): this.iface.destroyIface()
-
-# used for instance.createVariable
-class BPVariable(CustomEvent):
-	type = None
-	# this.totalSet = 0
-	# this.totalGet = 0
-
-	def __init__(this, id, options={}):
-		CustomEvent.__init__(this)
-
-		id = re.sub(r'/^\/|\/$/m', '', id)
-		id = re.sub(r'/[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\\\,.<>?]+/', '_', id)
-		this.id = id
-		this.title = options['title'] if 'title' in options else id
-
-		# this.rootInstance = instance
-		this.id = this.title = id
-		this.type = Types.Slot
-		this._value = None
-		this.used = []
-
-		# The type need to be defined dynamically on first cable connect
-
-	@property
-	def value(this):
-		return this._value
-
-	@value.setter
-	def value(this, val):
-		if(this._value == val): return
-
-		this._value = val
-		this.emit('value')
-
-	def destroy(this):
-		map = this.used
-		for iface in map:
-			iface.node.instance.deleteNode(iface)
-
-		map.clear()
 
 class BPVarGetSet(Interface):
 	_onChanged = None
@@ -158,10 +110,14 @@ class BPVarGetSet(Interface):
 
 		if(port == None): raise Exception("Can't set type with None")
 		temp.type = port._config if port._config != None else port.type
+		if(isinstance(temp, dict) and temp.type['feature'] == Port.Trigger):
+			temp.type = Types.Trigger
 
 		if(port.type == Types.Slot):
 			this.waitTypeChange(temp, port)
-		else: temp.emit('type.assigned')
+		else:
+			this._recheckRoute()
+			temp.emit('type.assigned')
 
 		# Also create port for other node that using this variable
 		used = temp.used
@@ -172,6 +128,9 @@ class BPVarGetSet(Interface):
 		def callback():
 			if(port != None):
 				bpVar.type = port._config if port._config != None else port.type
+				if(isinstance(bpVar, dict) and bpVar.type['feature'] == Port.Trigger):
+					bpVar.type = Types.Trigger
+
 				bpVar.emit('type.assigned')
 			else:
 				if this.input['Val'] != None:
@@ -179,11 +138,23 @@ class BPVarGetSet(Interface):
 				else: target = this.output['Val']
 				target.assignType(bpVar.type)
 
+			this._recheckRoute()
+
 		this._waitTypeChange = callback
 		this._destroyWaitType = lambda: bpVar.off('type.assigned', this._waitTypeChange)
 
 		iPort = port if port != None else bpVar
 		iPort.once('type.assigned', this._waitTypeChange)
+
+	def _recheckRoute(this):
+		if(
+			(hasattr(this, 'input') and ('Val' in this.input) and this.input['Val'].type == Types.Trigger)
+     		or
+			(hasattr(this, 'output') and ('Val' in this.output) and this.output['Val'].type == Types.Trigger)
+		):
+			routes = this.node.routes
+			routes.disableOut = True
+			routes.noUpdate = True
 
 	def destroyIface(this):
 		temp = this._destroyWaitType
@@ -220,6 +191,7 @@ class IVarGet(BPVarGetSet):
 		if(varRef.type == Types.Slot): return
 
 		this._reinitPort()
+		this._recheckRoute()
 
 	def _reinitPort(this):
 		temp = this._bpVarRef
@@ -234,7 +206,7 @@ class IVarGet(BPVarGetSet):
 		ref = node.output
 		node.createPort('output', 'Val', temp.type)
 
-		if(temp.type == FunctionType):
+		if(temp.type == Types.Trigger):
 			this._eventListen = 'call'
 			def callback(ev): ref['Val']()
 			this._onChanged = callback
@@ -243,7 +215,7 @@ class IVarGet(BPVarGetSet):
 			def callback(ev): ref['Val'] = temp._value
 			this._onChanged = callback
 
-		if(temp.type != FunctionType):
+		if(temp.type != Types.Trigger):
 			node.output['Val'] = temp._value
 
 		temp.on(this._eventListen, this._onChanged)
@@ -265,6 +237,7 @@ class IVarSet(BPVarGetSet):
 		if(varRef.type == Types.Slot): return
 
 		this._reinitPort()
+		this._recheckRoute()
 
 	def _reinitPort(this):
 		input = this.input
@@ -277,7 +250,7 @@ class IVarSet(BPVarGetSet):
 		if('Val' in input):
 			node.deletePort('input', 'Val')
 
-		if(temp.type == FunctionType):
+		if(temp.type == Types.Trigger):
 			node.createPort('input', 'Val', Port.Trigger(lambda port: temp.emit('call')))
 
 		else: node.createPort('input', 'Val', temp.type)

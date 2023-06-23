@@ -308,6 +308,11 @@ class Engine(CustomEvent):
 		which = which.replace('.', '_')
 		this.settings[which] = val
 
+	def linkVariables(this, vars):
+		for temp in vars:
+			Utils.setDeepProperty(this.variables, temp.id.split('/'), temp)
+			this._emit('variable.new', temp)
+
 	def _getTargetPortType(this, instance, whichPort, targetNodes):
 		target = targetNodes[0] # ToDo: check all target in case if it's supporting Union type
 		targetIface = instance.ifaceList[target['i']]
@@ -419,6 +424,8 @@ class Engine(CustomEvent):
 		parentObj = Utils.getDeepProperty(this.variables, ids, 1)
 
 		if(parentObj != None and lastId in parentObj):
+			if(parentObj[lastId].isShared): return
+      
 			this.variables[id].destroy()
 			del this.variables[id]
 

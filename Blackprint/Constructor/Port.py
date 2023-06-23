@@ -155,11 +155,11 @@ class Port(CustomEvent):
 
 	def createLinker(this):
 		# Callable port
-		if(this.source == 'output' and (this.type == FunctionType or this.type == Types.Route)):
+		if(this.source == 'output' and (this.type == Types.Trigger or this.type == Types.Route)):
 			# Disable sync
 			this._sync = False
 
-			if(this.type != FunctionType):
+			if(this.type != Types.Trigger):
 				this.isRoute = True
 				this.iface.node.routes.disableOut = True
 
@@ -305,7 +305,7 @@ class Port(CustomEvent):
 				if(type_['feature'] == PortFeature.Union):
 					type_ = Types.Any
 				elif(type_['feature'] == PortFeature.Trigger):
-					type_ = FunctionType
+					type_ = type_['type']
 				elif(type_['feature'] == PortFeature.ArrayOf):
 					type_ = list
 				elif(type_['feature'] == PortFeature.Default):
@@ -403,8 +403,8 @@ class Port(CustomEvent):
 
 		# Remove cable if type restriction
 		if(not isInstance or (
-			   cableOwner.type == FunctionType and this.type != FunctionType
-			or cableOwner.type != FunctionType and this.type == FunctionType
+			   cableOwner.type == Types.Trigger and this.type != Types.Trigger
+			or cableOwner.type != Types.Trigger and this.type == Types.Trigger
 		)):
 			this._cableConnectError('cable.wrong_type_pair', {
 				"cable": cable,
@@ -456,7 +456,7 @@ class Port(CustomEvent):
 			out = cable.target
 
 		# Remove old cable if the port not support array
-		if(inp.feature != PortFeature.ArrayOf and inp.type != FunctionType):
+		if(inp.feature != PortFeature.ArrayOf and inp.type != Types.Trigger):
 			cables = inp.cables # Cables in input port
 			cableLen = len(cables)
 

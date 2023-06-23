@@ -1,4 +1,3 @@
-from types import FunctionType
 from ..Port.PortFeature import Port
 from ..Types import Types
 from ..Node import Node
@@ -120,7 +119,7 @@ class FnVarInputIface(BPFnVarInOut):
 				this._waitPortInit = None
 
 				portName = PortName(name)
-				portType = getFnPortType(port, 'input', this._funcMain, portName)
+				portType = getFnPortType(port, 'input', this, portName)
 				iPort.assignType(portType)
 				iPort._name = portName
 
@@ -141,7 +140,7 @@ class FnVarInputIface(BPFnVarInOut):
 				iPort.onConnect = None
 				this._waitPortInit = None
 
-				portType = getFnPortType(port, 'input', this._funcMain, port._name)
+				portType = getFnPortType(port, 'input', this, port._name)
 				iPort.assignType(portType)
 				this._addListener()
 
@@ -152,7 +151,7 @@ class FnVarInputIface(BPFnVarInOut):
 		else:
 			if('Val' not in this.output):
 				port = this._funcMain._proxyInput.iface.output[name]
-				portType = getFnPortType(port, 'input', this._funcMain, port._name)
+				portType = getFnPortType(port, 'input', this, port._name)
 				newPort = node.createPort('output', 'Val', portType)
 				newPort._name = port._name
 
@@ -161,7 +160,7 @@ class FnVarInputIface(BPFnVarInOut):
 	def _addListener(this):
 		port = this._proxyIface.output[this.data['name']]
 
-		if(port.type == FunctionType):
+		if(port.type == Types.Trigger):
 			def _listener(ev):
 				this.ref.Output['Val']()
 
@@ -221,7 +220,7 @@ class FnVarOutputIface(BPFnVarInOut):
 				this._waitPortInit = None
 
 				portName = PortName(name)
-				portType = getFnPortType(port, 'output', this._funcMain, portName)
+				portType = getFnPortType(port, 'output', this, portName)
 				iPort.assignType(portType)
 				iPort._name = portName
 
@@ -240,7 +239,7 @@ class FnVarOutputIface(BPFnVarInOut):
 				iPort.onConnect = None
 				this._waitPortInit = None
 
-				portType = getFnPortType(port, 'output', this._funcMain, port._name)
+				portType = getFnPortType(port, 'output', this, port._name)
 				iPort.assignType(portType)
 
 			this._waitPortInit = _waitPortInit
@@ -248,9 +247,16 @@ class FnVarOutputIface(BPFnVarInOut):
 
 		else:
 			port = this._funcMain._proxyOutput.iface.input[name]
-			portType = getFnPortType(port, 'output', this._funcMain, port._name)
+			portType = getFnPortType(port, 'output', this, port._name)
 			newPort = node.createPort('input', 'Val', portType)
 			newPort._name = port._name
+
+	def _recheckRoute(this):
+		if(this.input.Val.type != Types.Trigger): return
+
+		routes = this.node.routes
+		routes.disableOut = True
+		routes.noUpdate = True
 
 def _Dummy_PortTrigger_():
 	raise Exception("This can't be called")
@@ -258,9 +264,10 @@ def _Dummy_PortTrigger_():
 _Dummy_PortTrigger = Port.Trigger(_Dummy_PortTrigger_)
 
 def getFnPortType(port, which, parentNode, ref):
-	if(port.feature == Port.Trigger or port.type == FunctionType):
-		if(which == 'input'): # Function Input (has output port inside, and input port on main node):
-			return FunctionType
+	if(port.feature == Port.Trigger or port.type == Types.Trigger):
+		# Function Input (has output port inside, and input port on main node):
+		if(which == 'input'):
+			return Types.Trigger
 		else: return _Dummy_PortTrigger
 	# Skip ArrayOf port feature, and just use the type
 	elif(port.feature == Port.ArrayOf):

@@ -1,5 +1,4 @@
 from ..Types import Types
-from types import FunctionType
 
 class Port:
 	# This port can contain multiple cable as input
@@ -44,7 +43,7 @@ class Port:
 		if func == None: raise Exception("Callback must not be None")
 		return {
 			'feature': Port.Trigger,
-			'type': FunctionType,
+			'type': Types.Trigger,
 			'func': func
 		}
 

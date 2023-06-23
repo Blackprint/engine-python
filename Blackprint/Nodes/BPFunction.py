@@ -1,6 +1,5 @@
 import re
 
-from types import FunctionType
 from typing import Dict
 
 from ..Port.PortFeature import Port
@@ -10,6 +9,7 @@ from ..Node import Node
 from ..Constructor.CustomEvent import CustomEvent
 from ..Constructor.Port import Port as PortClass
 from .BPVariable import VarScope, BPVariable
+from ..Types import Types
 from .Enums import Enums
 from ..Internal import EvVariableNew, registerNode, registerInterface
 import re
@@ -276,7 +276,7 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 
 			# Sync all port value
 			for key, value in IOutput.items():
-				if(value.type == FunctionType): continue
+				if(value.type == Types.Trigger): continue
 				Output[key] = thisInput[key]
 
 			return
@@ -348,7 +348,7 @@ class NodeOutput(Node):
 
 			# Sync all port value
 			for key, value in IOutput.items():
-				if(value.type == FunctionType): continue
+				if(value.type == Types.Trigger): continue
 				Output[key] = thisInput[key]
 
 			return
@@ -379,6 +379,8 @@ class FnMain(Interface):
 		# ToDo: will this be slower if we lazy import the module like below?
 		from ..Engine import Engine
 		this.bpInstance = Engine()
+		if(this.data != None and ('pause' in this.data)):
+			this.bpInstance.executionOrder.pause = True
 
 		bpFunction = node._funcInstance
 
@@ -421,6 +423,7 @@ class FnMain(Interface):
 		this._save = _save
 		this.bpInstance.on('cable.connect cable.disconnect node.created node.delete node.id.changed port.default.changed _port.split _port.unsplit _port.resync.allow _port.resync.disallow', this._save)
 
+	def imported(this, data): this.data = data
 	def renamePort(this, which, fromName, toName):
 		this.node._funcInstance.renamePort(which, fromName, toName)
 		this._save(False, False, True)
@@ -461,7 +464,7 @@ class BPFnInOut(Interface):
 			nodeB = this.node
 			refName = PortName(name)
 
-			portType = getFnPortType(port, 'input', this._funcMain, refName)
+			portType = getFnPortType(port, 'input', this, refName)
 			nodeA._funcInstance.input[name] = portType
 
 		else: # Output (input) . Main (output)
@@ -476,12 +479,12 @@ class BPFnInOut(Interface):
 			nodeB = this._funcMain.node
 			refName = PortName(name)
 
-			portType = getFnPortType(port, 'output', this._funcMain, refName)
+			portType = getFnPortType(port, 'output', this, refName)
 			nodeB._funcInstance.output[name] = portType
 
 		outputPort = nodeB.createPort('output', name, portType)
 
-		if(portType == FunctionType):
+		if(portType == Types.Trigger):
 			inputPort = nodeA.createPort('input', name, Port.Trigger(lambda port: outputPort._callAll()))
 		else: inputPort = nodeA.createPort('input', name, portType)
 

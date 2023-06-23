@@ -1,5 +1,4 @@
 from ..Types import Types
-from types import FunctionType
 from typing import Dict
 
 from ..Port.PortFeature import Port

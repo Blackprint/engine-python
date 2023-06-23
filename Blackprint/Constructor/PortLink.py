@@ -1,6 +1,5 @@
 import re
 
-from types import FunctionType
 from typing import Dict
 
 from ..Internal import EvPortSelf
@@ -127,7 +126,7 @@ class PortLink(MutableMapping):
 		# else: output ports
 
 		# This may get called if the port is lazily assigned with Slot port feature
-		if(port.type == FunctionType):
+		if(port.type == Types.Trigger):
 			if(port._call_ == None):
 				port._call_ = lambda: port._callAll()
 
@@ -199,7 +198,7 @@ class PortLink(MutableMapping):
 			if(val['feature'] == Port.Union):
 				val = Types.Any
 			elif(val['feature'] == Port.Trigger):
-				val = FunctionType
+				val = Types.Trigger
 			elif(val['feature'] == Port.ArrayOf):
 				val = list
 			elif(val['feature'] == Port.Default):

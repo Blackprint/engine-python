@@ -2,6 +2,7 @@ import re
 # from .Utils import Utils
 from .Constructor import InstanceEvent
 from .Types import Types
+from .Nodes.BPVariable_init import BPVariable, VarScope
 
 class Internal:
 	nodes = {}
@@ -65,6 +66,16 @@ def registerEvent(namespace, options):
 			raise Exception(f"Unsupported schema type for field 'key' in '{namespace}'")
 	
 	Internal.events[namespace] = InstanceEvent(options)
+
+def createVariable(namespace, options=[]):
+	if(re.search(r'/\s/', namespace) != None):
+		raise Exception(f"Namespace can't have space character: '{namespace}'")
+
+	temp = BPVariable(namespace, options)
+	temp._scope = VarScope.public
+	temp.isShared = True
+
+	return temp
 
 # Below is for internal only
 class EvError:

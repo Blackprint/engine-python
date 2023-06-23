@@ -1,5 +1,4 @@
 import asyncio
-from types import FunctionType
 from .Types import Types
 from .Port.PortFeature import Port
 
@@ -45,7 +44,7 @@ class Utils:
 			feature = val['feature']
 			if(feature == Port.Trigger):
 				def_ = val['func']
-				type = FunctionType
+				type = val['type']
 
 			elif(feature == Port.ArrayOf):
 				type = val['type']
@@ -69,7 +68,7 @@ class Utils:
 			def_ = ''
 		elif(type == list):
 			def_ = []
-		# elif(type == FunctionType): 0
+		# elif(type == Types.Trigger): 0
 		# elif(type == Types.Any): 0 # Any
 		# elif(type == Types.Slot): 0
 		# elif(type == Types.Route): 0
