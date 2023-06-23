@@ -1,11 +1,10 @@
 import Blackprint
-import types
 from ...utils import colorLog
 
 @Blackprint.registerNode('Example/Input/Simple')
 class Simple(Blackprint.Node):
 	output = {
-		'Changed': types.FunctionType,
+		'Changed': Blackprint.Types.Trigger,
 		'Value': str,
 	}
 

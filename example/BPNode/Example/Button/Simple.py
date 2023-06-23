@@ -1,11 +1,10 @@
 import Blackprint
-import types
 from ...utils import colorLog
 
 @Blackprint.registerNode('Example/Button/Simple')
 class Simple(Blackprint.Node):
 	output = {
-		'Clicked': types.FunctionType
+		'Clicked': Blackprint.Types.Trigger
 	}
 
 	# Create interface for puppet node
