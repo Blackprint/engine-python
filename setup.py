@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
 	name='Blackprint',
-	version='0.8.15',
+	version='0.9.0',
 	packages=['Blackprint'],
 	# scripts=['bin/script1','bin/script2'],
 	url='https://github.com/Blackprint/engine-python',

@@ -1,3 +1,13 @@
+# 0.9.0
+
+### Breaking Changes
+- Change callable output port type with Trigger type
+    - Renamed type: `types.FunctionType` to `Blackprint.Types.Trigger`
+
+### Features
+- Allow function node to be paused on creation
+- Add feature to linking variable between instances
+
 # 0.8.15
 
 ### Bug Fix

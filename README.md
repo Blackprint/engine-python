@@ -35,14 +35,13 @@ import BPNode # Import your own nodes located on ./BPNode directory
 
 ```python
 # file: ./BPNode/Example/Hello.py
-import types
 
 @Blackprint.registerNode('Example/Hello')
 class Hello(Blackprint.Node):
     # Please remember to capitalize the port name
     # Set the output port structure for your node (Optional)
     output = {
-        'Changed': types.FunctionType,
+        'Changed': Blackprint.Types.Trigger,
         # this.output['Changed']() -- To call every connected port
 
         'Output': int,
