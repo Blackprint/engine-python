@@ -131,9 +131,8 @@ class Engine(CustomEvent):
 			this.events.list = {}
 		elif(not options['appendMode']): this.clearNodes()
 
-		# Do we need this?
-		# this.emit("json.importing", appendMode: options.appendMode, raw: json})
-		
+		this.emit("json.importing", { 'appendMode': options['appendMode'], 'raw': json})
+
 		if('environments' in json and not(options['noEnv'])):
 			Environment.imports(json['environments'])
 
@@ -296,7 +295,7 @@ class Engine(CustomEvent):
 			val.init()
 
 		this._importing = False
-		# this.emit("json.imported", {appendMode: options.appendMode, nodes: inserted, raw: json})
+		this.emit("json.imported", {'appendMode': options['appendMode'], 'startIndex': appendLength, 'nodes': inserted, 'raw': json})
 		this.executionOrder.next()
 
 		return inserted

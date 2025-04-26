@@ -24,6 +24,7 @@ class Node(CustomEvent):
 	# static
 	type = None
 	interfaceSync = None
+	interfaceDocs = None
 
 	_bpUpdating = False
 	_funcInstance = None
