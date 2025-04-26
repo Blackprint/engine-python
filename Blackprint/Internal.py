@@ -1,5 +1,5 @@
 import re
-# from .Utils import Utils
+from .Utils import Utils
 from .Constructor import InstanceEvent
 from .Types import Types
 from .Nodes.BPVariable_init import BPVariable, VarScope
@@ -30,6 +30,10 @@ def registerNode(namespace: str): # Decorator
 	namespace = namespace.replace('\\', '/')
 
 	def register(clazz):
+		if(namespace in Internal.nodes):
+			Utils.patchClass(Internal.nodes[namespace], clazz)
+			return Internal.nodes[namespace]
+		
 		Internal.nodes[namespace] = clazz
 		return clazz
 
@@ -42,6 +46,10 @@ def registerInterface(templatePath: str): # Decorator
 		raise Exception(f"{templatePath}: The first parameter of 'registerInterface' must be started with BPIC to avoid name conflict. Please name the interface similar with 'templatePrefix' for your module that you have set on 'blackprint.config.js'.", 1)
 
 	def register(clazz):
+		if(templatePath in Internal.interface):
+			Utils.patchClass(Internal.interface[templatePath], clazz)
+			return Internal.interface[templatePath]
+
 		Internal.interface[templatePath] = clazz
 		return clazz
 

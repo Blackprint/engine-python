@@ -95,3 +95,12 @@ class Utils:
 		task = asyncio.create_task(corountine)
 		Utils._asyncTask.add(task)
 		task.add_done_callback(Utils._asyncTask.discard)
+
+	def patchClass(old_class, new_class):
+		for name in list(vars(old_class).keys()):
+			if not name.startswith("__"):
+				delattr(old_class, name)
+
+		for name, value in vars(new_class).items():
+			if not name.startswith("__"):
+				setattr(old_class, name, value)
