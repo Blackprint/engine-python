@@ -2,13 +2,15 @@ import asyncio
 from .Types import Types
 from .Constructor.Cable import Cable
 from .Nodes.Enums import Enums
+from .Constructor.CustomEvent import CustomEvent
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
 	from .Interface import Interface
 
-class RoutePort:
+class RoutePort(CustomEvent):
 	def __init__(this, iface):
+		CustomEvent.__init__(this)
 		this.inp: list[Cable] = [] # Allow incoming route from multiple path
 		this.out: Cable = None # Only one route/path
 		# this._outTrunk = None // If have branch

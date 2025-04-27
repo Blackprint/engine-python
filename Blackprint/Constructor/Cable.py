@@ -83,12 +83,14 @@ class Cable:
 		return this.output.value
 
 	def disconnect(this, which=False): # which = port
+		owner = this.owner
+		target = this.target
+
 		if(this.isRoute): # ToDo: simplify, use 'which' instead of check all
 			input = this.input
 			output = this.output
 
-			if(output.cables != None): output.cables.clear()
-			elif(output.out == this): output.out = None
+			if(output.out == this): output.out = None
 			elif(input.out == this): input.out = None
 
 			i = Utils.findFromList(output.inp, this)
@@ -101,10 +103,17 @@ class Cable:
 					input.inp.pop(i)
 
 			this.connected = False
+
+			temp1 = EvPortValue(owner, target, this)
+			owner.emit('disconnect', temp1)
+			owner.iface.emit('cable.disconnect', temp1)
+			owner.iface.node.instance.emit('cable.disconnect', temp1)
+			temp2 = EvPortValue(target, owner, this)
+			target.emit('disconnect', temp2)
+			target.iface.emit('cable.disconnect', temp2)
+
 			return
 
-		owner = this.owner
-		target = this.target
 		alreadyEmitToInstance = False
 		this._disconnecting = True
 
