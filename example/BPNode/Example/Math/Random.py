@@ -1,6 +1,6 @@
 from random import uniform
 import Blackprint
-from ...utils import colorLog
+from ..utils import colorLog
 
 def ReSeed(port):
 	node = port.iface.node
@@ -20,8 +20,6 @@ class Random(Blackprint.Node):
 		'Re-seed': Blackprint.Port.Trigger(ReSeed)
 	}
 
-	executed = False
-
 	def __init__(this, instance):
 		super(Random, this).__init__(instance)
 
@@ -29,6 +27,7 @@ class Random(Blackprint.Node):
 		iface.title = "Random"
 
 	# When the connected node is requesting for the output value
+	executed = False
 	def request(this, cable):
 		# Only run once this node never been executed
 		# Return false if no value was changed

@@ -1,5 +1,5 @@
 import Blackprint
-from ...utils import colorLog
+from ..utils import colorLog
 
 def Exec(port):
 	node = port.iface.node
@@ -37,7 +37,7 @@ class Multiply(Blackprint.Node):
 		def onCableConnect(ev):
 			colorLog("Math/Multiply:", f"Cable connected from {ev.port.iface.title} ({ev.port.name}) to {ev.target.iface.title} ({ev.target.name})")
 
-		iface.on('cable.connect', onCableConnect) 
+		iface.on('cable.connect', onCableConnect)
 
 	# When any output value from other node are updated
 	# Let's immediately change current node result

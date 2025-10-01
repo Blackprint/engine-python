@@ -1,5 +1,5 @@
 import Blackprint
-from ...utils import colorLog
+from ..utils import colorLog
 
 @Blackprint.registerNode('Example/Input/Simple')
 class Simple(Blackprint.Node):
@@ -10,7 +10,7 @@ class Simple(Blackprint.Node):
 
 	# Create interface for puppet node
 	interfaceSync = [
-		{'type': "text_in", 'id': "value", 'placeholder': "Type text here..."},
+		{'type': "text_in", 'id': "value", 'save': True, 'placeholder': "Type text here..."},
 	]
 
 	def __init__(this, instance):
@@ -23,20 +23,18 @@ class Simple(Blackprint.Node):
 	def imported(this, data):
 		if data == None: return
 
-		val = data['value']
-		colorLog("Input/Simple:", f"Old data: {this.iface.data.value}")
-		if(val): colorLog("Input/Simple:", f"Imported data: {val}")
-
-		this.iface.data.value = val
+		if 'value' in data:
+			val = data['value']
+			colorLog("Input/Simple:", f"Old data: {this.iface.data.value}")
+			if(val): colorLog("Input/Simple:", f"Imported data: {val}")
+			this.iface.data.value = val
 
 	# Remote sync in
 	def syncIn(this, id, data):
 		if(id == 'data'):
 			this.iface.data.value = data['value']
-			this.iface.changed(data['value'])
 		elif(id == 'value'):
 			this.iface.data.value = data
-			this.iface.changed(data)
 
 class InputIFaceData:
 	def __init__(this, iface):
@@ -51,6 +49,7 @@ class InputIFaceData:
 	def value(this, val):
 		this._data['value'] = val
 		this._iface.changed(val)
+		Blackprint.Utils.runAsync(this._iface.node.routes.routeOut())
 
 @Blackprint.registerInterface('BPIC/Example/Input')
 class InputIFace(Blackprint.Interface):

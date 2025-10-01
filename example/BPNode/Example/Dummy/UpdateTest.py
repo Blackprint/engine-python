@@ -1,6 +1,6 @@
 import Blackprint
 import types
-from ...utils import colorLog
+from ..utils import colorLog
 
 @Blackprint.registerNode('Example/Dummy/UpdateTest')
 class UpdateTest(Blackprint.Node):
@@ -22,7 +22,7 @@ class UpdateTest(Blackprint.Node):
 		# def onValue(ev):
 		# 	if(ev.port.source != 'input'): return
 		# 	this[ev.port.name] = ev.target.value
-		
+
 		# iface.on('port.value', onValue)
 
 	def update(this, cable):

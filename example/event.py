@@ -1,8 +1,10 @@
 import Blackprint
-import BPNode # Register our nodes from BPNode folder
+# import BPNode # Register our nodes from BPNode folder
 
 import sys
-# sys.tracebacklimit = 2
+sys.tracebacklimit = 2
+
+Blackprint.ModuleLoader.add_path('BPNode/Example') # Register our nodes from BPNode folder
 
 # == Import JSON after all nodes was registered ==
 # You can import the JSON to Blackprint Sketch if you want to view the nodes visually

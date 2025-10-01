@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from .RoutePort import RoutePort
 from .Constructor.CustomEvent import CustomEvent
 from .Constructor.Port import Port as PortClass
@@ -7,6 +8,8 @@ from .Constructor.PortLink import PortLink
 from .Interface import Interface
 from .Internal import Internal
 from .Nodes.Enums import Enums
+from .Types import Types
+from .Port.PortFeature import Port as PortFeature
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -27,7 +30,7 @@ class Node(CustomEvent):
 	interfaceDocs = None
 
 	_bpUpdating = False
-	_funcInstance = None
+	bpFunction = None
 	_contructed = True
 
 	# For remote control
@@ -62,9 +65,42 @@ class Node(CustomEvent):
 		if(which != 'input' and which != 'output'):
 			raise Exception("Can only create port for 'input' and 'output'")
 
-		if(which == "input"):
-			return this.input._add(name, type)
-		else: return this.output._add(name, type)
+		if(type == None):
+			raise Exception("Type is required for creating new port")
+
+		if(not isinstance(name, str)):
+			name = str(name)
+
+		if(
+			# Types
+			type == Types.Slot or
+			type == Types.Any or
+			type == Types.Slot or
+			type == Types.Route or
+			type == Types.Trigger or
+
+			# PortFeature
+			(isinstance(type, dict) and 'feature' in type and (
+				type['feature'] == PortFeature.ArrayOf or
+				type['feature'] == PortFeature.Default or
+				type['feature'] == PortFeature.Trigger or
+				type['feature'] == PortFeature.Union or
+				type['feature'] == PortFeature.StructOf
+			)) or
+
+			# Check if type is a class (built-in or custom)
+			inspect.isclass(type)
+		  ):
+
+			if(which == "input"):
+				ret = this.input._add(name, type)
+			else: ret = this.output._add(name, type)
+
+			return ret
+
+		print("Get type:")
+		print(type)
+		raise Exception("Type must be a class object or from Blackprint.Port.{feature}")
 
 	def renamePort(this, which, name, to):
 		if(this.instance._locked_):
@@ -93,39 +129,67 @@ class Node(CustomEvent):
 		if(which != 'input' and which != 'output'):
 			raise Exception("Can only delete port for 'input' and 'output'")
 
-		if(which == "input"):
-			return this.input._delete(name)
-		else: return this.output._delete(name)
+		if(not isinstance(name, str)):
+			name = str(name)
+
+		ret = this[which]._delete(name)
+
+		return ret
 
 	def log(this, message):
 		this.instance._log({"iface": this.iface, "message": message})
 
-	def _bpUpdate(this):
+	async def _bpUpdate(this, cable=None):
 		thisIface = this.iface
 		isMainFuncNode = thisIface._enum == Enums.BPFnMain
 		ref = this.instance.executionOrder
 
-		this._bpUpdating = True
-		cour = this.update(None)
-		if(asyncio.iscoroutine(cour)): asyncio.run(cour)
-		this._bpUpdating = False
-		this.iface.emit('updated')
+		if(this.update != None):
+			this._bpUpdating = True
+			try:
+				temp = this.update(cable)
+				if(asyncio.iscoroutine(temp)): await temp # Performance optimization
+			finally:
+				this._bpUpdating = False
+			this.iface.emit('updated')
 
 		if(this.routes.out == None):
-			if(isMainFuncNode and thisIface.node.routes.out != None):
-				thisIface.node.routes.routeOut()
-				ref.next()
-			else: ref.next()
+			if(isMainFuncNode and hasattr(thisIface, '_proxyInput') and thisIface._proxyInput.routes.out != None):
+				await thisIface._proxyInput.routes.routeOut()
 		else:
 			if(not isMainFuncNode):
-				this.routes.routeOut()
-			else: thisIface._proxyInput.routes.routeOut()
+				await this.routes.routeOut()
+			else:
+				if(hasattr(thisIface, '_proxyInput')):
+					await thisIface._proxyInput.routes.routeOut()
 
-			ref.next()
+		await ref.next()
 
-	def syncOut(this, id, data):
-		if(this.instance._remote != None):
-			this.instance._remote.BpSyncOut(this, id, data)
+	def _syncToAllFunction(this, id, data):
+		parentInterface = this.instance.parentInterface
+		if(parentInterface == None): return # This is not in a function node
+
+		list = parentInterface.node.bpFunction.used
+		nodeIndex = this.iface.i
+		namespace = parentInterface.namespace
+
+		for iface in list:
+			if(iface == parentInterface): continue # Skip self
+			target = iface.bpInstance.ifaceList[nodeIndex]
+
+			if(target == None): raise Exception(f"Target node was not found on other function instance, maybe the node was not correctly synced? ({namespace.replace('BPI/F/', '')});")
+			target.node.syncIn(id, data, False)
+
+	def syncOut(this, id, data, force=False):
+		this._syncToAllFunction(id, data)
+
+		instance = this.instance
+		if(instance.rootInstance != None):
+			instance.rootInstance = instance.rootInstance # Ensure rootInstance is set
+
+		remote = instance._remote
+		if(remote != None):
+			remote.nodeSyncOut(this, id, data, force)
 
 	# To be overriden by module developer
 	def init(this): pass
@@ -134,4 +198,4 @@ class Node(CustomEvent):
 	def request(this, cable): pass
 	def initPorts(this, data): pass
 	def destroy(this): pass
-	def syncIn(this, id, data): pass
+	def syncIn(this, id, data, isRemote=False): pass

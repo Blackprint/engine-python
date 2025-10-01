@@ -1,6 +1,6 @@
 import json
 import Blackprint
-from ...utils import colorLog
+from ..utils import colorLog
 
 @Blackprint.registerNode('Example/Display/Logger')
 class Logger(Blackprint.Node):

@@ -23,8 +23,8 @@ class Interface(CustomEvent):
 	ref: References
 	data = None
 
-	# @var Nodes/FnMain 
-	_funcMain = None
+	# @var Nodes/FnMain
+	parentInterface = None
 	_requesting = False
 	_enum = None
 	_dynamicPort = False
@@ -62,10 +62,10 @@ class Interface(CustomEvent):
 		for key, value in portSwitches.items():
 			ref = this.output[key]
 
-			if((value | 1) == 1):
+			if(value & 1):
 				Port.StructOf_split(ref)
 
-			if((value | 2) == 2):
+			if(value & 2):
 				ref.allowResync = True
 
 	def _importInputs(this, ports):

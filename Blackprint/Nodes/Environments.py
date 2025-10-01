@@ -27,7 +27,7 @@ class BPEnvSet(Node):
 	def __init__(this, instance):
 		Node.__init__(this, instance)
 		iface = this.setInterface('BPIC/BP/Env/Set')
-		
+
 		# Specify data field from here to make it enumerable and exportable
 		iface.data = {"name": ''}
 		iface.title = 'EnvSet'
@@ -43,11 +43,15 @@ class BPEnvSet(Node):
 class BPEnvGetSet(Interface):
 	def imported(this, data):
 		if('name' not in data or data['name'] == ''): raise Exception("Parameter 'name' is required")
-		this.data['name'] = data['name']
+		this.title = this.data['name'] = data['name']
 
 		# Create environment if not exist
 		if(data['name'] not in Environment.map):
 			Environment.set(data['name'], '')
+
+		# Listen for name change
+		this._nameListener = lambda old, now: None if this.data['name'] != old else setattr(this, 'data', {'name': now, **this.data}) or setattr(this, 'title', now)
+		Event.on('environment.renamed', this._nameListener)
 
 		name = this.data['name']
 		rules = Environment._rules[name] if name in Environment._rules else None
@@ -80,10 +84,9 @@ class BPEnvGetSet(Interface):
 						return True # Disconnect cable or disallow connection
 				Val.onConnect = callback
 
-	def destroyListener():
-		# if(this._nameListener == None): return
-		# Blackprint.off('environment.renamed', this._nameListener)
-		pass
+	def destroyListener(this):
+		if(this._nameListener == None): return
+		Event.off('environment.renamed', this._nameListener)
 
 @registerInterface('BPIC/BP/Env/Get')
 class IEnvGet(BPEnvGetSet):

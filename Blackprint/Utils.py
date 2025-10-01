@@ -6,40 +6,100 @@ class Utils:
 	NoOperation = lambda: None
 
 	@staticmethod
-	def setDeepProperty(obj, path, value = None):
-		last = path.pop()
-		for key in path:
-			if(key not in obj):
+	def setDeepProperty(obj, path, value=None, onCreate=None):
+		if not path:
+			return
+
+		# Check each path component type
+		for key in path[:-1]:
+			if not isinstance(key, (str, int, float)):
+				raise Exception(f"Object field must be Number or String, but found: {repr(key)}")
+
+			# Disallow diving into internal Python property
+			if key in ("__class__", "__dict__", "__weakref__", "__module__", "__bases__"):
+				return
+
+			if key not in obj:
 				obj[key] = {}
+				if onCreate:
+					onCreate(obj[key])
 
 			obj = obj[key]
 
-		obj[last] = value
+		# Check the last path component type
+		lastKey = path[-1]
+		if not isinstance(lastKey, (str, int, float)):
+			raise Exception(f"Object field must be Number or String, but found: {repr(lastKey)}")
+
+		if lastKey in ("__class__", "__dict__", "__weakref__", "__module__", "__bases__"):
+			return
+
+		obj[lastKey] = value
 		return
 
 	@staticmethod
-	def getDeepProperty(obj, path, reduceLen = 0):
-		i = len(path) - reduceLen
-		for key in path:
-			if(key not in obj):
-				return None
+	def getDeepProperty(obj, path, reduceLen=0):
+		if not path:
+			return None
 
+		n = len(path) - reduceLen
+		if n <= 0:
+			return None
+
+		for i in range(n):
+			key = path[i]
+			if key not in obj:
+				return None
 			obj = obj[key]
 
-			i -= 1
-			if(i == 0): break
-
 		return obj
+
+	@staticmethod
+	def deleteDeepProperty(obj, path, deleteEmptyParent=False):
+		if not path:
+			return
+
+		lastPath = path[-1]
+		parents = []
+
+		# Navigate to the parent of the target
+		for key in path[:-1]:
+			if key not in obj:
+				return
+			parents.append(obj)
+			obj = obj[key]
+
+		# Delete the target property
+		if lastPath in obj:
+			del obj[lastPath]
+
+		# Clean up empty parents if requested
+		if deleteEmptyParent:
+			for i in range(len(parents)-1, -1, -1):
+				parent = parents[i]
+				key = path[i]
+				if key not in parent:
+					continue
+
+				# Check if the object is empty
+				if hasattr(parent[key], '__len__') and len(parent[key]) == 0:
+					del parent[key]
+				elif not hasattr(parent[key], '__len__'):
+					# For non-container objects, assume they're "empty" if they have no attributes
+					if not hasattr(parent[key], '__dict__') or not parent[key].__dict__:
+						del parent[key]
+				else:
+					break  # Object is not empty, stop cleaning up
 
 	@staticmethod
 	def determinePortType(val, that):
 		if(val == None):
 			raise Exception(f"Port type can't be None, error when processing: {that._iface.namespace}, {that._which} port")
-	
+
 		type = val
 		def_ = None
 		feature = None
-	
+
 		if(isinstance(val, dict)):
 			feature = val['feature']
 			if(feature == Port.Trigger):
@@ -79,9 +139,9 @@ class Utils:
 		# 	def = port
 		# 	type = str
 		# }
-	
+
 		return ( type, def_, feature )
-	
+
 	def findFromList(list, item):
 		try:
 			return list.index(item)
@@ -90,11 +150,14 @@ class Utils:
 
 	_asyncTask = set()
 	def runAsync(corountine):
-		return
-
-		task = asyncio.create_task(corountine)
-		Utils._asyncTask.add(task)
-		task.add_done_callback(Utils._asyncTask.discard)
+		if(corountine == None): return
+		try:
+			task = asyncio.create_task(corountine)
+			Utils._asyncTask.add(task)
+			task.add_done_callback(Utils._asyncTask.discard)
+		except RuntimeError:
+			# No event loop running, use asyncio.run() to create one
+			asyncio.run(corountine)
 
 	def patchClass(old_class, new_class):
 		for name in list(vars(old_class).keys()):
@@ -104,3 +167,12 @@ class Utils:
 		for name, value in vars(new_class).items():
 			if not name.startswith("__"):
 				setattr(old_class, name, value)
+
+	@staticmethod
+	def _combineArray(A, B):
+		list = []
+		if A is not None:
+			list.extend(A)
+		if B is not None:
+			list.extend(B)
+		return list

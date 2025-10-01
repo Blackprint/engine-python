@@ -1,8 +1,10 @@
 import Blackprint
-import BPNode # Register our nodes from BPNode folder
+# import BPNode # Register our nodes from BPNode folder
 
 import sys
 sys.tracebacklimit = 2
+
+Blackprint.ModuleLoader.add_path('BPNode/Example') # Register our nodes from BPNode folder
 
 Blackprint.Environment.set('TEST', '12345')
 Blackprint.Environment.imports({ 'TEST2': '54321' })
@@ -22,13 +24,13 @@ TEST2 = instance.iface['test2'] # input
 TEST2_ = instance.iface['test2Out'] # output
 
 logger = instance.iface['myLogger']
-print("\n\n>> I got the output value: " + logger.log)
+print("\n>> I got the output value: " + logger.log)
 
 print("\n\n>> I'm writing env value 'hello' into the node")
 out = Blackprint.OutputPort(str)
 out.value = 'hello'
 TEST.ref.IInput['Val'].connectPort(out)
-print(".n\n>> I got the output value: " + logger.log)
+print("\n>> I got the output value: " + logger.log)
 
 print("\n\n>> I'm trying to connect ruled environment node, this must can't be connected")
 try:

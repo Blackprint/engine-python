@@ -21,6 +21,8 @@ class OrderedExecution:
 	pause = False
 	stepMode = False
 	_processing = False
+	stop = False
+	_rootExecOrder = {'stop': False}
 
 	# Pending because stepMode
 	_pRequest = []
@@ -31,13 +33,19 @@ class OrderedExecution:
 	_tCable = None
 	_lastCable = None
 	_lastBeforeNode = None
+	_execCounter = None
 
 	def __init__(this, instance, size=30):
-		this.initialSize = size
 		this.instance = instance
-
-		# array<Blackprint.Node>
+		this.initialSize = size
 		this.list = size*[None]
+		this.index = 0
+		this.length = 0
+		this.stop = False
+		this.pause = False
+		this.stepMode = False
+		this._execCounter = None
+		this._rootExecOrder = {'stop': False}
 
 		# Cable who trigger the execution order's update (with stepMode)
 		this._tCable = {} # Map { Node : Set<Cable> }
@@ -53,12 +61,10 @@ class OrderedExecution:
 		this.length = this.index = 0
 
 	def add(this, node, _cable=None):
-		if(this.isPending(node)):
-			# print("pending "+node.iface.title)
+		if(this.stop or this._rootExecOrder['stop'] or this.isPending(node)):
 			return
 
 		this._isReachLimit()
-		# print(f"add {node.iface.title} {node.iface.id}")
 
 		this.list[this.length] = node
 		this.length += 1
@@ -68,11 +74,14 @@ class OrderedExecution:
 			this._emitNextExecution()
 
 	def _tCableAdd(this, node, cable):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
+
 		tCable = this._tCable # Cable triggerer
 		sets = tCable.get(node)
 		if(sets == None):
 			sets = set() # Set
-			tCable.put(node, sets)
+			tCable[node] = sets
 
 		sets.add(cable)
 
@@ -82,15 +91,19 @@ class OrderedExecution:
 			raise Exception("Execution order limit was exceeded")
 
 	def _next(this):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
 		if(this.index >= this.length):
 			return
-
-		if(this.stepMode): this._tCable.remove(temp)
 
 		i = this.index
 		temp = this.list[i]
 		this.list[i] = None
 		this.index += 1
+
+		if(this.stepMode):
+			if temp in this._tCable:
+				this._tCable.remove(temp)
 
 		if(this.index >= this.length):
 			this.index = this.length = 0
@@ -107,6 +120,9 @@ class OrderedExecution:
 		))
 
 	def _addStepPending(this, cable, triggerSource):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
+
 		# 0 = execution order, 1 = route, 2 = trigger port, 3 = request
 		if(triggerSource == 1 and cable not in this._pRoute): this._pRoute.append(cable)
 		if(triggerSource == 2 and cable not in this._pTrigger): this._pTrigger.append(cable)
@@ -114,7 +130,7 @@ class OrderedExecution:
 			hasCable = False
 			list = this._pRequest
 			for val in list:
-				if(val == cable):
+				if(val['cable'] == cable):
 					hasCable = True
 					break
 
@@ -122,7 +138,7 @@ class OrderedExecution:
 				cableCall = None
 				inputPorts = cable.input.iface.input
 
-				for key, port in inputPorts:
+				for key, port in inputPorts.items():
 					if(port._calling):
 						cables = port.cables
 						for _cable in cables:
@@ -141,8 +157,14 @@ class OrderedExecution:
 
 	# For step mode
 	def _emitNextExecution(this, afterNode=None):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
+
 		triggerSource = 0
 		beforeNode = None
+		cable = None
+		inputNode = None
+		outputNode = None
 
 		if(len(this._pRequest) != 0):
 			triggerSource = 3
@@ -171,14 +193,54 @@ class OrderedExecution:
 			if(this._lastBeforeNode == beforeNode): return
 
 			cables = this._tCable.get(beforeNode) # Set<Cables>
-			if(cables): cables = cables.toArray()
+			if(cables):
+				cables = list(cables)
 
 			return this._emitPaused(afterNode, beforeNode, 0, None, cables)
 		elif(triggerSource == 3):
 			return this._emitPaused(inputNode, outputNode, triggerSource, cable)
 		else: return this._emitPaused(outputNode, inputNode, triggerSource, cable)
 
-	def _checkStepPending(this):
+	def _checkExecutionLimit(this):
+		limit = this.instance._settings.get('singleNodeExecutionLoopLimit')
+		if(not limit):
+			this._execCounter = None
+			return
+
+		if(this.length - this.index == 0):
+			if(this._execCounter != None):
+				this._execCounter.clear()
+			return
+
+		node = this.list[this.index]
+		if(node == None):
+			raise Exception("Empty")
+
+		if(this._execCounter == None):
+			this._execCounter = {}
+
+		if(node not in this._execCounter):
+			this._execCounter[node] = 0
+
+		count = this._execCounter[node] + 1
+		this._execCounter[node] = count
+
+		if(count > limit):
+			print(f"Execution terminated at {node.iface}")
+			this.stepMode = True
+			this.pause = True
+			this._execCounter.clear()
+
+			message = f"Single node execution loop exceeded the limit ({limit}): {node.iface.namespace}"
+			this.instance._emit('execution.terminated', {'reason': message, 'iface': node.iface})
+			return True
+
+	async def _checkStepPending(this):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
+		if(this._checkExecutionLimit()):
+			return
+
 		if(not this._hasStepPending): return
 		_pRequest = this._pRequest
 		_pRequestLast = this._pRequestLast
@@ -186,7 +248,9 @@ class OrderedExecution:
 		_pRoute = this._pRoute
 
 		if(len(_pRequest) != 0):
-			[ cable, cableCall ] = _pRequest.pop(0)
+			item = _pRequest.pop(0)
+			cable = item['cable']
+			cableCall = item['cableCall']
 			currentIface = cable.output.iface
 			current = currentIface.node
 
@@ -202,7 +266,7 @@ class OrderedExecution:
 			# Check if the cable was the last requester from a node
 			isLast = True
 			for value in _pRequest:
-				if(value.cable.input.iface == inpIface):
+				if(value['cable'].input.iface == inpIface):
 					isLast = False
 
 			if(isLast):
@@ -217,28 +281,31 @@ class OrderedExecution:
 			this._tCableAdd(inpIface.node, cable)
 			this._emitNextExecution()
 		elif(len(_pRequestLast) != 0):
-			[ node, cableCall ] = _pRequestLast.pop()
+			item = _pRequestLast.pop()
+			node = item['node']
+			cableCall = item['cableCall']
 
-			cour = node.update(None)
-			if(asyncio.iscoroutine(cour)): asyncio.run(cour)
+			temp = node.update(None)
+			if(asyncio.iscoroutine(temp)): await temp
 
 			if(cableCall != None):
 				cableCall.input._call(cableCall)
 
-			this._tCable.remove(node)
+			if node in this._tCable:
+				this._tCable.remove(node)
 			this._emitNextExecution()
 		elif(len(_pTrigger) != 0):
 			cable = _pTrigger.pop(0)
 			current = cable.input
 
-			# cable.visualizeFlow()
+			cable.visualizeFlow()
 			current._call(cable)
 
 			this._emitNextExecution()
 		elif(len(_pRoute) != 0):
 			cable = _pRoute.pop(0)
 
-			# cable.visualizeFlow()
+			cable.visualizeFlow()
 			cable.input.routeIn(cable, True)
 
 			this._emitNextExecution()
@@ -249,67 +316,61 @@ class OrderedExecution:
 
 		return True
 
-	def next(this, force=False):
-		# asyncio.sleep(0)
-
-		if(this._processing): return
-		if(this.pause and not force): return
-		if(this._checkStepPending()): return
+	async def next(this, force=False):
+		if(this.stop or this._rootExecOrder['stop']):
+			return
 		if(this.stepMode): this.pause = True
+		if(this.pause and not force): return
+		if(len(this.instance.ifaceList) == 0): return
+		if(await this._checkStepPending()): return
 
 		next = this._next() # next: node
 		if(next == None): return
 
-		this._processing = True
-
-		_proxyInput = None
+		skipUpdate = len(next.routes.inp) != 0
 		nextIface = next.iface
 		next._bpUpdating = True
 
-		if(next.partialUpdate):
+		if(next.partialUpdate and next.update == None):
 			next.partialUpdate = False
 
-		skipUpdate = len(next.routes.inp) != 0
+		_proxyInput = None
 		if(nextIface._enum == Enums.BPFnMain):
 			_proxyInput = nextIface._proxyInput
 			_proxyInput._bpUpdating = True
 
-		# print(f"run {next.iface.title} {next.iface.id}")
-
 		try:
 			if(next.partialUpdate):
-				portList = nextIface.input
+				portList = nextIface.input._portList
 				for inp in portList:
 					if(inp.feature == PortFeature.ArrayOf):
-						if(inp._hasUpdate != False):
+						if(inp._hasUpdate):
 							inp._hasUpdate = False
-	
+
 							if(not skipUpdate):
 								cables = inp.cables
 								for cable in cables:
 									if(not cable._hasUpdate): continue
 									cable._hasUpdate = False
-	
-									cour = next.update(cable)
-									if(asyncio.iscoroutine(cour)): asyncio.run(cour)
+
+									temp = next.update(cable)
+									if(asyncio.iscoroutine(temp)): await temp
 
 					elif(inp._hasUpdateCable != None):
 						cable = inp._hasUpdateCable
 						inp._hasUpdateCable = None
-	
+
 						if(not skipUpdate):
-							cour = next.update(cable)
-							if(asyncio.iscoroutine(cour)): asyncio.run(cour)
+							temp = next.update(cable)
+							if(asyncio.iscoroutine(temp)): await temp
 
 			next._bpUpdating = False
-			if(_proxyInput): _proxyInput._bpUpdating = False
+			if(_proxyInput != None): _proxyInput._bpUpdating = False
 
-			if(not next.partialUpdate and not skipUpdate): next._bpUpdate()
+			if(not next.partialUpdate and not skipUpdate): await next._bpUpdate()
 		except:
-			if(_proxyInput): _proxyInput._bpUpdating = False
+			if(_proxyInput != None): _proxyInput._bpUpdating = False
 			this.clear()
 			traceback.print_exc()
-
-		if(this.stepMode): this._emitNextExecution = next
-		this._processing = False
-		this.next()
+		finally:
+			if(this.stepMode): this._emitNextExecution(next)

@@ -19,7 +19,7 @@ class BPEventListen(Node):
 	}
 	output = {}
 
-	# @var IEventListen 
+	# @var IEventListen
 	iface = None
 	_limit = -1 # -1 = no limit
 	_off = False
@@ -54,7 +54,7 @@ class BPEventListen(Node):
 			port.value = obj[key]
 			port.sync()
 
-		this.routes.routeOut()
+		Utils.runAsync(this.routes.routeOut())
 
 	def offEvent(this):
 		if(this._off == False):
@@ -65,6 +65,7 @@ class BPEventListen(Node):
 
 	def destroy(this):
 		iface = this.iface
+		iface._removeFromList()
 
 		if(iface._listener == None): return
 		iface._insEventsRef.off(iface.data['namespace'], iface._listener)
@@ -76,7 +77,7 @@ class BPEventEmit(Node):
 		"Emit": Port.Trigger(lambda port: port.iface.node.trigger()),
 	}
 
-	# @var IEnvEmit 
+	# @var IEnvEmit
 	iface = None
 
 	def __init__(this, instance):
@@ -101,6 +102,9 @@ class BPEventEmit(Node):
 			data[key] = Input[key] # Obtain data by triggering the offsetGet (getter)
 
 		this.instance.events.emit(this.iface.data['namespace'], data)
+
+	def destroy(this):
+		this.iface._removeFromList()
 
 class BPEventListenEmit(Interface):
 	# _nameListener
@@ -129,43 +133,53 @@ class BPEventListenEmit(Interface):
 		for key in schema:
 			this.node.createPort(createPortTarget, key, Types.Any)
 
+		this._addToList()
+
 	def createField(this, name, type=Types.Any):
 		schema = this._eventRef.schema
-		if(schema[name] != None): return
+		if(name in schema): return
 
 		schema[name] = type
 		this._insEventsRef.refreshFields(this.data['namespace'])
-		this.node.instance.emit('eventfield.create', EvEFCreate(
-			name,
-			this.data['namespace']
-		))
+		this.node.instance._emit('event.field.created', {
+			'name': name,
+			'namespace': this.data['namespace'],
+		})
 
 	def renameField(this, name, to):
 		schema = this._eventRef.schema
-		if(schema[name] == None or schema[to] != None): return
+		if((not name in schema) or (to in schema)): return
 
 		this._insEventsRef._renameFields(this.data['namespace'], name, to)
-		this.node.instance.emit('eventfield.rename', EvEFRename(
-			name,
-			to,
-			this.data['namespace']
-		))
+		this.node.instance._emit('event.field.renamed', {
+			'old': name, 'now': to,
+			'namespace': this.data['namespace'],
+		})
 
-	def deleteField(this, name, type=Types.Any):
+	def deleteField(this, name):
 		schema = this._eventRef.schema
-		if(schema[name] != None): return
+		if(name in schema): return
 
 		del schema[name]
 		this._insEventsRef.refreshFields(this.data['namespace'])
-		this.node.instance.emit('eventfield.delete', EvEFDelete(
-			name,
-			this.data['namespace']
-		))
+		this.node.instance._emit('event.field.deleted', {
+			'name': name,
+			'namespace': this.data['namespace'],
+		})
+
+	def _addToList(this):
+		used = this._insEventsRef.list[this.data['namespace']].used
+		if(this not in used): used.append(this)
+		else: print("Tried to adding this node to the InstanceEvents more than once")
+
+	def _removeFromList(this):
+		used = this._insEventsRef.list[this.data['namespace']].used
+		if(this in used): used.remove(this)
 
 @registerInterface('BPIC/BP/Event/Listen')
 class IEventListen(BPEventListenEmit):
 	_listener = None
-	# @var BPEventListen 
+	# @var BPEventListen
 	node = None
 	def initPorts(this, data):
 		BPEventListenEmit.initPorts(this, data)

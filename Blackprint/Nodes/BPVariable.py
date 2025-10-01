@@ -22,7 +22,7 @@ class VarSet(Node):
 		# Specify data field from here to make it enumerable and exportable
 		iface.data = {
 			"name": '',
-			"scope": VarScope.public
+			"scope": VarScope.Public
 		}
 
 		iface.title = 'VarSet'
@@ -45,7 +45,7 @@ class VarGet(Node):
 		# Specify data field from here to make it enumerable and exportable
 		iface.data = {
 			"name": '',
-			"scope": VarScope.public
+			"scope": VarScope.Public
 		}
 
 		iface.title = 'VarGet'
@@ -69,30 +69,33 @@ class BPVarGetSet(Interface):
 	def changeVar(this, name, scopeId):
 		if(this.data['name'] != ''):
 			raise Exception("Can't change variable node that already be initialized")
-			
+
 		this.data['name'] = name
 		this.data['scope'] = scopeId
 
-		_funcInstance = this.node.instance._funcMain
-		if(_funcInstance != None):
-			_funcInstance = _funcInstance.node._funcInstance
+		bpFunction = this.node.instance.parentInterface
+		if(bpFunction != None):
+			bpFunction = bpFunction.node.bpFunction
 
-		if(scopeId == VarScope.public):
-			if(_funcInstance != None):
-				scope = _funcInstance.rootInstance.variables
+		if(scopeId == VarScope.Public):
+			if(bpFunction != None and bpFunction.rootInstance != None):
+				scope = bpFunction.rootInstance.variables
 			else: scope = this.node.instance.variables
 
-		elif(scopeId == VarScope.shared):
-			scope = _funcInstance.variables
+		elif(scopeId == VarScope.Shared):
+			if(bpFunction != None):
+				scope = bpFunction.variables
+			else:
+				raise Exception("Shared variable requires a function context")
 		else: # private
 			scope = this.node.instance.variables
 
 		construct = Utils.getDeepProperty(scope, name.split('/'))
 
 		if(construct == None):
-			if(scopeId == VarScope.public): _scopeName = 'public'
-			elif(scopeId == VarScope.private): _scopeName = 'private'
-			elif(scopeId == VarScope.shared): _scopeName = 'shared'
+			if(scopeId == VarScope.Public): _scopeName = 'public'
+			elif(scopeId == VarScope.Private): _scopeName = 'private'
+			elif(scopeId == VarScope.Shared): _scopeName = 'shared'
 			else: _scopeName = 'unknown'
 
 			raise Exception(f"'{name}' variable was not defined on the '{_scopeName} (scopeId: {scopeId})' instance")
@@ -120,9 +123,9 @@ class BPVarGetSet(Interface):
 			temp.emit('type.assigned')
 
 		# Also create port for other node that using this variable
-		used = temp.used
-		for item in used:
-			item._reinitPort()
+		map = temp.used
+		for item in map:
+			temp = item._reinitPort()
 
 	def waitTypeChange(this, bpVar, port=None):
 		def callback():
@@ -157,8 +160,7 @@ class BPVarGetSet(Interface):
 			routes.noUpdate = True
 
 	def destroyIface(this):
-		temp = this._destroyWaitType
-		if(temp != None):
+		if hasattr(this, '_destroyWaitType') and this._destroyWaitType != None:
 			this._destroyWaitType()
 
 		temp = this._bpVarRef
@@ -166,12 +168,6 @@ class BPVarGetSet(Interface):
 
 		i = Utils.findFromList(temp.used, this)
 		if(i != None): temp.used.pop(i)
-
-		listener = this._bpVarRef.listener
-		if(listener == None): return
-
-		i = Utils.findFromList(listener, this)
-		if(i != None): listener.pop(i)
 
 @registerInterface('BPIC/BP/Var/Get')
 class IVarGet(BPVarGetSet):

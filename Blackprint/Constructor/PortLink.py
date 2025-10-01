@@ -66,13 +66,15 @@ class PortLink(MutableMapping):
 					node = output.iface.node
 					executionOrder = node.instance.executionOrder
 
+					if(executionOrder.stop or executionOrder._rootExecOrder['stop']): return
 					if(executionOrder.stepMode and node.request != None):
 						executionOrder._addStepPending(cable, 3)
 						return
 
-					output.iface.node.request(cable)
+					node.request(cable)
 
 				# print(f"\n1. {port.name} . {output.name} ({output.value})")
+				cable.visualizeFlow()
 
 				portIface._requesting = False
 
@@ -104,9 +106,18 @@ class PortLink(MutableMapping):
 
 				# Request the data first
 				if(output.value == None):
-					output.iface.node.request(cable)
+					node = output.iface.node
+					executionOrder = node.instance.executionOrder
+
+					if(executionOrder.stop or executionOrder._rootExecOrder['stop']): return
+					if(executionOrder.stepMode and node.request != None):
+						executionOrder._addStepPending(cable, 3)
+						return
+
+					node.request(cable)
 
 				# print(f"\n2. {port.name} . {output.name} ({output.value})")
+				cable.visualizeFlow()
 
 				if(isNotArrayPort):
 					finalVal = output.value
@@ -188,9 +199,6 @@ class PortLink(MutableMapping):
 		return this._ifacePort.__contains__(this,x)
 
 	def _add(this, portName, val):
-		if(re.search(r'/([~!@#$%^&*()_\-+=[]{};\'\\:"|,.\/<>?]|\s)/', portName) != None):
-			raise Exception("Port name can't include symbol character except underscore")
-
 		if(portName == ''):
 			raise Exception("Port name can't be empty")
 

@@ -33,7 +33,7 @@ def registerNode(namespace: str): # Decorator
 		if(namespace in Internal.nodes):
 			Utils.patchClass(Internal.nodes[namespace], clazz)
 			return Internal.nodes[namespace]
-		
+
 		Internal.nodes[namespace] = clazz
 		return clazz
 
@@ -72,7 +72,7 @@ def registerEvent(namespace, options):
 		# or type from Blackprint.Port.{Feature}
 		if(not isinstance(obj, type) and obj.feature == None) and not Types.isType(obj):
 			raise Exception(f"Unsupported schema type for field 'key' in '{namespace}'")
-	
+
 	Internal.events[namespace] = InstanceEvent(options)
 
 def createVariable(namespace, options=[]):
@@ -80,7 +80,7 @@ def createVariable(namespace, options=[]):
 		raise Exception(f"Namespace can't have space character: '{namespace}'")
 
 	temp = BPVariable(namespace, options)
-	temp._scope = VarScope.public
+	temp._scope = VarScope.Public
 	temp.isShared = True
 
 	return temp
@@ -98,6 +98,10 @@ class EvIface:
 class EvPort:
 	def __init__(this, port):
 		this.port = port
+
+class EvCable:
+	def __init__(this, cable):
+		this.cable = cable
 
 class EvEnv:
 	def __init__(this, key, value=None):

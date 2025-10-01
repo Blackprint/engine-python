@@ -1,4 +1,4 @@
-from ..Internal import EvPortSelf, EvPortValue
+from ..Internal import EvPortSelf, EvPortValue, EvCable
 from ..Utils import Utils
 from ..Types import Types
 
@@ -41,7 +41,7 @@ class Cable:
 			# 	port: input, target: output
 			# });
 			return
-		
+
 		this.connected()
 
 	def _connected(this):
@@ -71,15 +71,21 @@ class Cable:
 		if(node.instance._importing):
 			node.instance.executionOrder.add(node, this)
 		elif(len(node.routes.inp) == 0):
-			Utils.runAsync(node._bpUpdate())
+			Utils.runAsync(node._bpUpdate(this))
 
 	# For debugging
 	def _print(this):
 		print(f"\nCable: {this.output.iface.title}.{this.output.name} . {this.input.name}.{this.input.iface.title}")
 
+	def visualizeFlow(this):
+		instance = this.owner.iface.node.instance
+		if(instance._remote != None):
+			instance._emit('_flowEvent', EvCable(this))
+
 	@property
 	def value(this):
 		if(this._disconnecting): return this.input.default
+		this.visualizeFlow()
 		return this.output.value
 
 	def disconnect(this, which=False): # which = port
@@ -87,27 +93,31 @@ class Cable:
 		target = this.target
 
 		if(this.isRoute): # ToDo: simplify, use 'which' instead of check all
-			input = this.input
 			output = this.output
 
+			if(output == None): return
+
 			if(output.out == this): output.out = None
-			elif(input.out == this): input.out = None
+			elif(this.input.out == this): this.input.out = None
 
 			i = Utils.findFromList(output.inp, this)
 			if(i != None):
 				output.inp.pop(i)
-
-			elif(input != None):
-				i = Utils.findFromList(input.inp, this)
+			elif(this.input != None):
+				i = Utils.findFromList(this.input.inp, this)
 				if(i != None):
-					input.inp.pop(i)
+					this.input.inp.pop(i)
 
 			this.connected = False
+
+			if(target == None): return # Skip disconnection event emit
 
 			temp1 = EvPortValue(owner, target, this)
 			owner.emit('disconnect', temp1)
 			owner.iface.emit('cable.disconnect', temp1)
 			owner.iface.node.instance.emit('cable.disconnect', temp1)
+
+			if(target == None): return
 			temp2 = EvPortValue(target, owner, this)
 			target.emit('disconnect', temp2)
 			target.iface.emit('cable.disconnect', temp2)

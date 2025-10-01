@@ -17,6 +17,7 @@ class RoutePort(CustomEvent):
 		this.disableOut = False
 		this.disabled = False
 		this.isRoute = True
+		this.name = "BPRoute"
 		this.source = 'route'
 		this.iface: 'Interface' = iface
 		this.type = Types.Route
@@ -46,6 +47,8 @@ class RoutePort(CustomEvent):
 
 	# Connect to input route
 	def connectCable(this, cable):
+		if(not cable.isRoute):
+			raise Exception("Cable must be created from route port before can be connected to other route port. Please use .routeTo(interface) instead if possible.")
 		if(cable in this.inp): return False
 		if(this.iface.node.update == None):
 			cable.disconnect()
@@ -54,33 +57,37 @@ class RoutePort(CustomEvent):
 		this.inp.append(cable)
 		cable.input = this
 		cable.target = this
+		cable.isRoute = True
 		cable._connected()
 
 		return True
 
-	def routeIn(this, _cable = None, _force = False):
+	async def routeIn(this, _cable = None, _force = False):
 		node = this.iface.node
+		if(node.disablePorts): return
+
+		executionOrder = node.instance.executionOrder
+		if(executionOrder.stop or executionOrder._rootExecOrder['stop']): return
 
 		# Add to execution list if the OrderedExecution is in Step Mode
-		executionOrder = node.instance.executionOrder
 		if(executionOrder.stepMode and _cable and not _force):
 			executionOrder._addStepPending(_cable, 1)
 			return
 
-		if(this.iface._enum != Enums.BPFnInput):
-			node._bpUpdate()
-		else: node.routes.routeOut()
+		# node = this.iface.node
+		_cable.visualizeFlow()
 
-	def routeOut(this):
+		if(this.iface._enum != Enums.BPFnInput): await node._bpUpdate()
+		else: await node.routes.routeOut()
+
+	async def routeOut(this):
 		if(this.disableOut): return
+
+		if(this.iface.node.disablePorts): return
 		if(this.out == None):
 			if(this.iface._enum == Enums.BPFnOutput):
-				return this.iface._funcMain.node.routes.routeIn()
+				return await this.iface.parentInterface.node.routes.routeIn()
 			return
-
-		# node = this.iface.node
-		# if(!node.instance.executionOrder.stepMode):
-		# 	this.out.visualizeFlow()
 
 		targetRoute = this.out.input
 		if(targetRoute == None): return
@@ -88,15 +95,14 @@ class RoutePort(CustomEvent):
 		_enum = targetRoute.iface._enum
 
 		if(_enum == None):
-			return targetRoute.routeIn(this.out)
+			return await targetRoute.routeIn(this.out)
 
 		# if(_enum == Enums.BPFnMain):
-		# 	return targetRoute.iface._proxyInput.routes.routeIn(this.out)
+		# 	return await targetRoute.iface._proxyInput.routes.routeIn(this.out)
 
-		if(_enum == Enums.BPFnOutput):
-			cour = targetRoute.iface.node.update(None)
-			if(asyncio.iscoroutine(cour)): asyncio.run(cour)
+		# if(_enum == Enums.BPFnOutput):
+		# 	let temp = targetRoute.iface.node._bpUpdate()
+		# 	if(temp?.constructor === Promise) await temp; # Performance optimization
+		# 	return await targetRoute.iface.parentInterface.node.routes.routeOut()
 
-			return targetRoute.iface._funcMain.node.routes.routeOut()
-
-		return targetRoute.routeIn(this.out)
+		return await targetRoute.routeIn(this.out)

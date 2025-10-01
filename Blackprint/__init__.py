@@ -16,3 +16,6 @@ from .Node import Node
 from .Interface import Interface
 from .Engine import Engine
 from .PortGhost import OutputPort, InputPort
+from .Nodes.BPVariable_init import VarScope
+
+from .ModuleLoader import ModuleLoader

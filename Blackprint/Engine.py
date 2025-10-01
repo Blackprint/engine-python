@@ -14,6 +14,7 @@ from .Constructor.OrderedExecution import OrderedExecution
 from .Constructor.Cable import Cable
 from .Constructor.InstanceEvent import InstanceEvents
 from typing import Dict, List
+from .Event import Event
 import json as JSON
 
 class Engine(CustomEvent):
@@ -22,7 +23,7 @@ class Engine(CustomEvent):
 
 		this.iface: Dict[str, Interface] = {} # { id => IFace }
 		this.ifaceList: List[Interface] = []
-		this.disablePorts = False
+		this.disablePorts = False # true = disable port data sync and disable route
 		this.throwOnError = True
 		this._settings = {}
 
@@ -33,16 +34,23 @@ class Engine(CustomEvent):
 		this.functions = {} # { category => BPFunction{ name, variables, input, output, used: [], node, description }, category => { category } }
 		this.ref = {} # { id => Port references }
 
-		this._funcMain: FnMain = None
-		this._mainInstance = None
+		this.rootInstance = None
 		this._importing = False
+		this._destroying = False
+		this._ready = False
 		this._remote = None
 		this._locked_ = False
 		this._eventsInsNew = False
 		this._destroyed_ = False
+		this.parentInterface: FnMain = None
 
 		this.executionOrder = OrderedExecution(this)
 		this.events = InstanceEvents(this)
+
+		this._envDeleted = lambda data: this._envDeletedHandler(data)
+		Event.on('environment.deleted', this._envDeleted)
+
+		this.once('json.imported', lambda data: this._onJsonImported())
 
 		# For remote control
 		this.syncDataOut = True
@@ -72,6 +80,8 @@ class Engine(CustomEvent):
 			if(not hasattr(iface, val)): continue
 
 			portList = getattr(iface, val)
+			if(portList == None): continue
+
 			for port in portList:
 				portList[port].disconnectAll(this._remote != None)
 
@@ -88,23 +98,33 @@ class Engine(CustomEvent):
 			del this.iface[iface.id]
 			del this.ref[iface.id]
 
-			parent = iface.node._funcInstance
+			parent = iface.node.bpFunction
 			if(parent != None):
 				del parent.rootInstance.ref[iface.id]
 
 		this._emit('node.deleted', eventData)
 
 	def clearNodes(this):
+		if(this._locked_): raise Exception("This instance was locked")
+		this._destroying = True
+
 		list = this.ifaceList
 		for iface in list:
 			if(iface == None): continue
 
+			eventData = EvIface(iface)
+			this._emit('node.delete', eventData)
+
 			iface.node.destroy()
 			iface.destroy()
+
+			this._emit('node.deleted', eventData)
 
 		this.ifaceList = []
 		this.iface = {}
 		this.ref = {}
+
+		this._destroying = False
 
 	def importJSON(this, json, options: Dict={}):
 		if(isinstance(json, str)):
@@ -131,20 +151,20 @@ class Engine(CustomEvent):
 			this.events.list = {}
 		elif(not options['appendMode']): this.clearNodes()
 
-		this.emit("json.importing", { 'appendMode': options['appendMode'], 'raw': json})
+		this.emit("json.importing", { 'appendMode': options['appendMode'], 'data': json})
 
 		if('environments' in json and not(options['noEnv'])):
 			Environment.imports(json['environments'])
 
 		if('functions' in json):
 			functions = json['functions']
-	
+
 			for key, value in functions.items():
 				this.createFunction(key, value)
-	
+
 		if('variables' in json):
 			variables = json['variables']
-	
+
 			for key, value in variables.items():
 				this.createVariable(key, value)
 
@@ -176,7 +196,7 @@ class Engine(CustomEvent):
 				if('output_sw' in conf):
 					confOpt['output_sw'] = conf['output_sw']
 
-				# @var Interface | Nodes.FnMain 
+				# @var Interface | Nodes.FnMain
 				iface = this.createNode(namespace, confOpt, nodes)
 				inserted[conf['i']] = iface # Don't add  as it's already reference
 
@@ -213,7 +233,7 @@ class Engine(CustomEvent):
 								linkPortA = iface.addPort(target, portName)
 
 								if(linkPortA == None):
-									raise Exception(f"Can't create output port ({portName}) for function ({iface._funcMain.node._funcInstance.id})")
+									raise Exception(f"Can't create output port ({portName}) for function ({iface.parentInterface.node.bpFunction.id})")
 
 							elif(iface._enum == Enums.BPVarGet):
 								target = this._getTargetPortType(this, 'input', ports)
@@ -245,7 +265,7 @@ class Engine(CustomEvent):
 									linkPortB = targetNode.addPort(linkPortA, target['name'])
 
 									if(linkPortB == None):
-										raise Exception(f"Can't create output port ({target['name']}) for function ({targetNode._funcMain.node._funcInstance.id})")
+										raise Exception(f"Can't create output port ({target['name']}) for function ({targetNode.parentInterface.node.bpFunction.id})")
 
 								elif(targetNode._enum == Enums.BPVarSet):
 									targetNode.useType(linkPortA)
@@ -295,22 +315,26 @@ class Engine(CustomEvent):
 			val.init()
 
 		this._importing = False
-		this.emit("json.imported", {'appendMode': options['appendMode'], 'startIndex': appendLength, 'nodes': inserted, 'raw': json})
-		this.executionOrder.next()
+		this.emit("json.imported", {'appendMode': options['appendMode'], 'startIndex': appendLength, 'nodes': inserted, 'data': json})
+		Utils.runAsync(this.executionOrder.next())
 
 		return inserted
 
 	def settings(this, which, val):
 		if(val == None):
-			return this.settings[which]
+			return this._settings[which]
 
 		which = which.replace('.', '_')
-		this.settings[which] = val
+		this._settings[which] = val
 
 	def linkVariables(this, vars):
 		for temp in vars:
 			Utils.setDeepProperty(this.variables, temp.id.split('/'), temp)
-			this._emit('variable.new', temp)
+			this._emit('variable.new', {
+				'reference': temp,
+				'scope': temp._scope,
+				'id': temp.id,
+			})
 
 	def _getTargetPortType(this, instance, whichPort, targetNodes):
 		target = targetNodes[0] # ToDo: check all target in case if it's supporting Union type
@@ -330,7 +354,262 @@ class Engine(CustomEvent):
 
 		return got
 
+	def createVariable(this, id, options):
+		if(this._locked_): raise Exception("This instance was locked")
+		if(re.search(r'/\s/', id) != None):
+			raise Exception(f"Id can't have space character: '{id}'")
+
+		ids = id.split('/')
+		lastId = ids[len(ids) - 1]
+		parentObj = Utils.getDeepProperty(this.variables, ids, 1)
+
+		if(parentObj != None and lastId in parentObj):
+			if(parentObj[lastId].isShared): return
+
+			this.variables[id].destroy()
+			del this.variables[id]
+
+		# setDeepProperty
+
+		# BPVariable = ./nodes/Var.js
+		temp = BPVariable(id, options)
+		Utils.setDeepProperty(this.variables, ids, temp)
+
+		temp._scope = VarScope.Public
+		this._emit('variable.new', {
+			'reference': temp,
+			'scope': temp._scope,
+			'id': temp.id,
+		})
+
+		return temp
+
+	def renameVariable(this, from_, to, scopeId):
+		from_ = re.sub(r'^/|/$', '', from_)
+		from_ = re.sub(r'[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\,<>\?]+', '_', from_)
+		to = re.sub(r'^/|/$', '', to)
+		to = re.sub(r'[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\,<>\?]+', '_', to)
+
+		instance, varsObject = None, None
+		if(scopeId == VarScope.Public):
+			instance = this.rootInstance if this.rootInstance != None else this
+			varsObject = instance.variables
+		elif(scopeId == VarScope.Private):
+			instance = this
+			if(instance.rootInstance == None):
+				raise Exception("Can't rename private function variable from main instance")
+			varsObject = instance.variables
+		elif(scopeId == VarScope.Shared):
+			return # Already handled on nodes/Fn.py
+
+		# Old variable object
+		ids = from_.split('/')
+		oldObj = Utils.getDeepProperty(varsObject, ids)
+		if(oldObj == None):
+			raise Exception(f"Variable with name '{from_}' was not found")
+
+		# New target variable object
+		ids2 = to.split('/')
+		if(Utils.getDeepProperty(varsObject, ids2) != None):
+			raise Exception(f"Variable with similar name already exist in '{to}'")
+
+		map = oldObj.used
+		for iface in map:
+			iface.title = iface.data.name = to
+
+		oldObj.id = oldObj.title = to
+
+		Utils.deleteDeepProperty(varsObject, ids, True)
+		Utils.setDeepProperty(varsObject, ids2, oldObj)
+
+		if(scopeId == VarScope.Private):
+			instance._emit('variable.renamed', {
+				'old': from_, 'now': to, 'bpFunction': this.parentInterface.node.bpFunction, 'scope': scopeId
+			})
+		else:
+			instance._emit('variable.renamed', {'old': from_, 'now': to, 'reference': oldObj, 'scope': scopeId})
+
+	def deleteVariable(this, namespace, scopeId):
+		varsObject, instance = None, this
+		if(scopeId == VarScope.Public):
+			instance = this.rootInstance if this.rootInstance != None else this
+			varsObject = instance.variables
+		elif(scopeId == VarScope.Private):
+			varsObject = instance.variables
+		elif(scopeId == VarScope.Shared):
+			varsObject = instance.sharedVariables
+
+		path = namespace.split('/')
+		oldObj = Utils.getDeepProperty(varsObject, path)
+		if(oldObj == None): return
+		oldObj.destroy()
+
+		bpFunction = this.parentInterface.node.bpFunction if this.parentInterface != None else None
+
+		Utils.deleteDeepProperty(varsObject, path, True)
+		this._emit('variable.deleted', {'scope': scopeId, 'id': oldObj.id, 'reference': oldObj, 'bpFunction': bpFunction})
+
+	def createFunction(this, id, options):
+		if(this._locked_): raise Exception("This instance was locked")
+		if(re.search(r'/\s/', id) != None):
+			raise Exception(f"Id can't have space character: '{id}'")
+
+		ids = id.split('/')
+		lastId = ids[len(ids) - 1]
+		parentObj = Utils.getDeepProperty(this.functions, ids, 1)
+
+		if(parentObj != None and lastId in parentObj):
+			parentObj[lastId].destroy()
+			del parentObj[lastId]
+
+		# BPFunction = ./nodes/Fn.js
+		temp = BPFunction(id, options, this)
+		Utils.setDeepProperty(this.functions, ids, temp)
+
+		if('vars' in options):
+			vars = options['vars']
+			for val in vars:
+				temp.createVariable(val, {"scope": VarScope.Shared})
+
+		if('privateVars' in options):
+			privateVars = options['privateVars']
+			for val in privateVars:
+				temp.createVariable(val, {"scope": VarScope.Private})
+
+		this._emit('function.new', {'reference': temp})
+		return temp
+
+	def renameFunction(this, from_, to):
+		from_ = re.sub(r'^/|/$', '', from_)
+		from_ = re.sub(r'[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\,<>\?]+', '_', from_)
+		to = re.sub(r'^/|/$', '', to)
+		to = re.sub(r'[`~!@#$%^&*()\-_+={}\[\]:"|;\'\\,<>\?]+', '_', to)
+
+		# Old function object
+		ids = from_.split('/')
+		oldObj = Utils.getDeepProperty(this.functions, ids)
+		if(oldObj == None):
+			raise Exception(f"Function with name '{from_}' was not found")
+
+		# New target function object
+		ids2 = to.split('/')
+		if(Utils.getDeepProperty(this.functions, ids2) != None):
+			raise Exception(f"Function with similar name already exist in '{to}'")
+
+		map = oldObj.used
+		for iface in map:
+			iface.namespace = 'BPI/F/'+to
+			if(iface.title == from_): iface.title = to
+
+		if(oldObj.title == from_): oldObj.title = to
+		oldObj.id = to
+
+		Utils.deleteDeepProperty(this.functions, ids, True)
+		Utils.setDeepProperty(this.functions, ids2, oldObj)
+
+		this._emit('function.renamed', {'old': from_, 'now': to, 'reference': oldObj})
+
+	def deleteFunction(this, id):
+		path = id.split('/')
+		oldObj = Utils.getDeepProperty(this.functions, path)
+		if(oldObj == None): return
+		oldObj.destroy()
+
+		Utils.deleteDeepProperty(this.functions, path, True)
+		this._emit('function.deleted', {'id': oldObj.id, 'reference': oldObj})
+
+	def _log(this, data):
+		data.instance = this
+
+		if(this.rootInstance != None):
+			this.rootInstance._emit('log', data)
+		else: this._emit('log', data)
+
+	def _emit(this, evName, data=[]):
+		this.emit(evName, data)
+		if(this.parentInterface == None): return
+
+		rootInstance = this.parentInterface.node.bpFunction.rootInstance
+		if(rootInstance._remote == None): return
+		rootInstance.emit(evName, data)
+
+	def _envDeletedHandler(this, key):
+		list = this.ifaceList
+		for iface in reversed(list):
+			if(iface.namespace != 'BP/Env/Get' and iface.namespace != 'BP/Env/Set'): continue
+			if(iface.data.name == key): this.deleteNode(iface)
+
+	def _onJsonImported(this):
+		this._ready = True
+		if(hasattr(this, '_readyResolve') and this._readyResolve != None):
+			this._readyResolve()
+
+	def ready(this):
+		if(this._ready): return
+		if(hasattr(this, '_readyPromise') and this._readyPromise != None):
+			return this._readyPromise
+
+		this._readyPromise = asyncio.Future()
+		this._readyResolve = lambda: this._readyPromise.set_result(None)
+		return this._readyPromise
+
+	def changeNodeId(this, iface, newId):
+		if(this._locked_): raise Exception("This instance was locked")
+
+		sketch = iface.node.instance
+		oldId = iface.id
+		if(oldId == newId or hasattr(iface, 'importing') and iface.importing): return
+
+		if(oldId != None and oldId != ""):
+			del sketch.iface[oldId]
+			del sketch.ref[oldId]
+
+			if(sketch.parentInterface != None):
+				del sketch.parentInterface.ref[oldId]
+
+		newId = newId if newId != None else ''
+		iface.id = newId
+
+		if(newId != ''):
+			sketch.iface[newId] = iface
+			sketch.ref[newId] = iface.ref
+
+			if(sketch.parentInterface != None):
+				sketch.parentInterface.ref[newId] = iface.ref
+
+		iface.node.instance.emit('node.id.changed', {'iface': iface, 'old': oldId, 'now': newId})
+
+	def _isInsideFunction(this, fnNamespace):
+		if(this.rootInstance == None): return False
+		if(this.parentInterface.namespace == fnNamespace): return True
+		return this.parentInterface.node.instance._isInsideFunction(fnNamespace)
+
+	def _tryInitUpdateNode(this, node, rule, creatingNode):
+		if((rule & Enums.WhenCreatingNode)):
+			if(not creatingNode): return
+		elif(creatingNode): return
+
+		# There are no cable connected when creating node
+		# So.. let's skip these checks
+		if(not creatingNode):
+			if((rule & Enums.NoRouteIn) and len(node.routes.inp) != 0): return
+			if((rule & Enums.NoInputCable)):
+				input = node.iface.input
+				for key in input:
+					if(len(input[key].cables) != 0): return
+
+		node.update()
+
 	def createNode(this, namespace, options={}, nodes=None):
+		if(this._locked_): raise Exception("This instance was locked")
+
+		if(namespace == "BP/Fn/Input" and this.parentInterface != None):
+			funcMain = this.parentInterface
+			if(funcMain._proxyInput != None):
+				# Disallow to have more than one proxy input
+				print("Function node can't have more than one proxy input")
+				return None
+
 		func = Internal.nodes.get(namespace)
 
 		# Try to load from registered namespace folder if exist
@@ -344,7 +623,9 @@ class Engine(CustomEvent):
 		if(func == None):
 			raise Exception(f"Node nodes for namespace '{namespace}' was not found, maybe .registerNode() haven't being called?")
 
-		# @var Node 
+		this.emit('node.creating', {'namespace': namespace, 'options': options})
+
+		# @var Node
 		node = funcNode if funcNode != None else func(this)
 		iface = node.iface
 
@@ -365,7 +646,7 @@ class Engine(CustomEvent):
 			this.iface[iface.id] = iface
 			this.ref[iface.id] = iface.ref
 
-			parent = iface.node._funcInstance
+			parent = iface.node.bpFunction
 			if(parent != None):
 				parent.rootInstance.ref[iface.id] = iface.ref
 
@@ -394,10 +675,10 @@ class Engine(CustomEvent):
 			for key, val in portSwitches.items():
 				ref = iface.output[key]
 
-				if((val | 1) == 1):
+				if(val & 1):
 					Port.StructOf_split(ref)
 
-				if((val | 2) == 2):
+				if(val & 2):
 					ref.allowResync = True
 
 		iface.importing = False
@@ -411,90 +692,20 @@ class Engine(CustomEvent):
 			node.init()
 			iface.init()
 
+		if(hasattr(func, 'initUpdate') and func.initUpdate != None):
+			this._tryInitUpdateNode(node, func.initUpdate, True)
+
+		this.emit('node.created', {'iface': iface})
 		return iface
-
-	def createVariable(this, id, options):
-		if(this._locked_): raise Exception("This instance was locked")
-		if(re.search(r'/\s/', id) != None):
-			raise Exception(f"Id can't have space character: '{id}'")
-
-		ids = id.split('/')
-		lastId = ids[len(ids) - 1]
-		parentObj = Utils.getDeepProperty(this.variables, ids, 1)
-
-		if(parentObj != None and lastId in parentObj):
-			if(parentObj[lastId].isShared): return
-      
-			this.variables[id].destroy()
-			del this.variables[id]
-
-		# setDeepProperty
-
-		# BPVariable = ./nodes/Var.js
-		temp = BPVariable(id, options)
-		Utils.setDeepProperty(this.variables, ids, temp)
-
-		temp._scope = VarScope.public
-		this._emit('variable.new', temp)
-
-		return temp
-
-	def createFunction(this, id, options):
-		if(this._locked_): raise Exception("This instance was locked")
-		if(re.search(r'/\s/', id) != None):
-			raise Exception(f"Id can't have space character: '{id}'")
-
-		if(id in this.functions):
-			this.functions[id].destroy()
-			del this.functions[id]
-
-		ids = id.split('/')
-		lastId = ids[len(ids) - 1]
-		parentObj = Utils.getDeepProperty(this.functions, ids, 1)
-
-		if(parentObj != None and lastId in parentObj):
-			parentObj[lastId].destroy()
-			del parentObj[lastId]
-
-		# BPFunction = ./nodes/Fn.js
-		temp = BPFunction(id, options, this)
-		Utils.setDeepProperty(this.functions, ids, temp)
-
-		if('vars' in options):
-			vars = options['vars']
-			for val in vars:
-				temp.createVariable(val, {"scope": VarScope.shared})
-
-		if('privateVars' in options):
-			privateVars = options['privateVars']
-			for val in privateVars:
-				temp.addPrivateVars(val)
-
-		this._emit('function.new', temp)
-		return temp
-
-	def _log(this, data):
-		data.instance = this
-
-		if(this._mainInstance != None):
-			this._mainInstance._emit('log', data)
-		else: this._emit('log', data)
 
 	def destroy(this):
 		this._locked_ = False
 		this._destroyed_ = True
 		this.clearNodes()
+
+		Event.off('_eventInstance.new', this._eventsInsNew)
+		Event.off('environment.deleted', this._envDeleted)
 		this.emit('destroy')
-	
-	def _emit(this, evName, data=[]):
-		this.emit(evName, data)
-		if(this._funcMain == None): return
-
-		rootInstance = this._funcMain.node._funcInstance.rootInstance
-		if(rootInstance._remote == None): return
-
-		data['bpFunction'] = rootInstance._funcInstance
-		rootInstance.emit(evName, data)
 
 def deepMerge(real, opt):
 	for key, val in opt.items():

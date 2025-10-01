@@ -4,15 +4,14 @@ import re
 
 # For internal library use only
 class VarScope:
-	public = 0
-	private = 1
-	shared = 2
+	Public = 0
+	Private = 1
+	Shared = 2
 
 # used for instance.createVariable
 class BPVariable(CustomEvent):
 	type = None
-	# this.totalSet = 0
-	# this.totalGet = 0
+	bpFunction = None  # Only exist for function node's variable (shared/private)
 
 	def __init__(this, id, options={}):
 		CustomEvent.__init__(this)
@@ -22,14 +21,13 @@ class BPVariable(CustomEvent):
 		this.id = id
 		this.title = options['title'] if 'title' in options else id
 
-		# this.rootInstance = instance
-		this.id = this.title = id
-		this.type = Types.Slot
-		this._value = None
-		this.isShared = False
-		this.used = []
-
 		# The type need to be defined dynamically on first cable connect
+		this.type = Types.Slot
+		this.used = []  # [Interface, Interface, ...]
+
+		this.totalSet = 0
+		this.totalGet = 0
+		this._value = None
 
 	@property
 	def value(this):
@@ -43,8 +41,8 @@ class BPVariable(CustomEvent):
 		this.emit('value')
 
 	def destroy(this):
-		map = this.used
-		for iface in map:
+		map = this.used  # This list can be altered multiple times when deleting a node
+		for iface in list(map):  # Create a copy to avoid modification during iteration
 			iface.node.instance.deleteNode(iface)
 
-		map.clear()
+		this.emit('destroy')

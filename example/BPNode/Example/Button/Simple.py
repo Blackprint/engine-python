@@ -1,5 +1,5 @@
 import Blackprint
-from ...utils import colorLog
+from ..utils import colorLog
 
 @Blackprint.registerNode('Example/Button/Simple')
 class Simple(Blackprint.Node):

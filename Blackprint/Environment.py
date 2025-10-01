@@ -25,10 +25,9 @@ class Environment:
 			raise Exception(f"Environment must be uppercase and not contain any symbol except underscore, and not started by a number. But got: {key}")
 
 		if(type(val) != str):
-			raise Exception("Value must be a string")
-		
-		map = Environment.map
-		map[key] = val
+			raise Exception(f"Environment value must be a string (found \"{val}\" in {key})")
+
+		Environment.map[key] = val
 
 		if(not Environment._noEvent):
 			temp = EvEnv(key, val)
@@ -36,11 +35,26 @@ class Environment:
 
 	@staticmethod
 	def delete(key):
-		map = Environment.map
-		del map[key]
+		if key in Environment.map:
+			del Environment.map[key]
 
 		temp = EvEnv(key)
 		Event.emit('environment.deleted', temp)
+
+	@staticmethod
+	def _rename(keyA, keyB):
+		if(not keyB): return
+
+		if(re.search(r"[^A-Z_][^A-Z0-9_]", keyB) != None):
+			raise Exception(f"Environment must be uppercase and not contain any symbol except underscore, and not started by a number. But got: {keyB}")
+
+		if keyA not in Environment.map:
+			raise Exception(f"{keyA} was not defined in the environment")
+
+		Environment.map[keyB] = Environment.map[keyA]
+		del Environment.map[keyA]
+
+		Event.emit('environment.renamed', {'old': keyA, 'now': keyB})
 
 
 	# options = {allowGet: {}, allowSet: {}}

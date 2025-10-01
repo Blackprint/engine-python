@@ -115,7 +115,7 @@ class Port(CustomEvent):
 			this._calling = cable._calling = False
 
 		if(iface._enum != Enums.BPFnMain):
-			iface.node.routes.routeOut()
+			Utils.runAsync(iface.node.routes.routeOut())
 
 	def _callAll(this):
 		if(this.type == Types.Route):
@@ -125,9 +125,6 @@ class Port(CustomEvent):
 			if(cable == None): return
 			if(cable.hasBranch): cable = cables[1]
 
-			# if(Blackprint.settings.visualizeFlow)
-			# 	cable.visualizeFlow()
-
 			if(cable.input == None): return
 			cable.input.routeIn(cable)
 		else:
@@ -135,15 +132,17 @@ class Port(CustomEvent):
 			if(node.disablePorts): return
 			executionOrder = node.instance.executionOrder
 
+			if(executionOrder.stop or executionOrder._rootExecOrder['stop']): return
+
 			for cable in this.cables:
 				target = cable.input
 				if(target == None): continue
 
-				# if(Blackprint.settings.visualizeFlow and !executionOrder.stepMode)
-				# 	cable.visualizeFlow()
+				if(not executionOrder.stepMode):
+					cable.visualizeFlow()
 
 				if(target._name != None):
-					target.iface._funcMain.node.iface.output[target._name.name]._callAll()
+					target.iface.parentInterface.node.iface.output[target._name.name]._callAll()
 				else:
 					if(executionOrder.stepMode):
 						executionOrder._addStepPending(cable, 2)
@@ -215,7 +214,7 @@ class Port(CustomEvent):
 
 			# print(f"\n4. {inp.name} = {inpIface.title}, {inpIface._requesting}")
 
-			if(nextUpdate): inpNode._bpUpdate()
+			if(nextUpdate): Utils.runAsync(inpNode._bpUpdate(cable))
 
 		if(singlePortUpdate):
 			thisNode._bpUpdating = False
@@ -446,12 +445,12 @@ class Port(CustomEvent):
 		cable.target = this
 
 		if(cable.target.source == 'input'):
-			# @var Port 
+			# @var Port
 			inp = cable.target
 			out = cableOwner
 
 		else:
-			# @var Port 
+			# @var Port
 			inp = cableOwner
 			out = cable.target
 
@@ -484,8 +483,27 @@ class Port(CustomEvent):
 		return True
 
 	def connectPort(this, port: 'Port'):
-		cable = Cable(port, this)
-		if(port._ghost): cable._ghost = True
+		if(this._node.instance._locked_):
+			raise Exception("This instance was locked")
 
-		port.cables.append(cable)
-		return this.connectCable(cable)
+		if(isinstance(port, Port)):
+			cable = this._createPortCable(port)
+			if(port._ghost): cable._ghost = True
+
+			port.cables.append(cable)
+			if(this.connectCable(cable)):
+				return True
+
+			return False
+		elif(isinstance(port, RoutePort)):
+			if(this.source == 'output'):
+				cable = this._createPortCable(this)
+				this.cables.append(cable)
+				return port.connectCable(cable)
+			raise Exception("Unhandled connection for RoutePort")
+		raise Exception("First parameter must be instance of Port or RoutePort")
+
+	def _createPortCable(this, port: 'Port'):
+		if(hasattr(port, '_scope') and port._scope != None):
+			return port.createCable(None, True)
+		return Cable(port, this)
