@@ -14,9 +14,9 @@ class EvExecutionPaused:
 		# execution priority: 3, 2, 1, 0
 		this.triggerSource = triggerSource
 
-class OrderedExecution:
+class ExecutionOrder:
 	index = 0
-	length = 0
+	lastIndex = 0
 	initialSize = 30
 	pause = False
 	stepMode = False
@@ -34,31 +34,37 @@ class OrderedExecution:
 	_lastCable = None
 	_lastBeforeNode = None
 	_execCounter = None
+	_lockNext = False
+	_nextLocked = False
 
 	def __init__(this, instance, size=30):
 		this.instance = instance
 		this.initialSize = size
 		this.list = size*[None]
 		this.index = 0
-		this.length = 0
+		this.lastIndex = 0
 		this.stop = False
 		this.pause = False
 		this.stepMode = False
+		this._lockNext = False
+		this._nextLocked = False
 		this._execCounter = None
 		this._rootExecOrder = {'stop': False}
 
 		# Cable who trigger the execution order's update (with stepMode)
 		this._tCable = {} # Map { Node : Set<Cable> }
 
-	def isPending(this, node):
+	def isPending(this, node=None):
+		if this.index == this.lastIndex: return False
+		if node == None: return True
 		return node in this.list
 
 	def clear(this):
 		list = this.list
-		for i in range(this.index, this.length):
+		for i in range(this.index, this.lastIndex):
 			list[i] = None
 
-		this.length = this.index = 0
+		this.lastIndex = this.index = 0
 
 	def add(this, node, _cable=None):
 		if(this.stop or this._rootExecOrder['stop'] or this.isPending(node)):
@@ -66,8 +72,8 @@ class OrderedExecution:
 
 		this._isReachLimit()
 
-		this.list[this.length] = node
-		this.length += 1
+		this.list[this.lastIndex] = node
+		this.lastIndex += 1
 
 		if(this.stepMode):
 			if(_cable != None): this._tCableAdd(node, _cable)
@@ -87,13 +93,13 @@ class OrderedExecution:
 
 	def _isReachLimit(this):
 		i = this.index + 1
-		if(i >= this.initialSize or this.length >= this.initialSize):
+		if(i >= this.initialSize or this.lastIndex >= this.initialSize):
 			raise Exception("Execution order limit was exceeded")
 
 	def _next(this):
 		if(this.stop or this._rootExecOrder['stop']):
 			return
-		if(this.index >= this.length):
+		if(this.index >= this.lastIndex):
 			return
 
 		i = this.index
@@ -105,8 +111,8 @@ class OrderedExecution:
 			if temp in this._tCable:
 				this._tCable.remove(temp)
 
-		if(this.index >= this.length):
-			this.index = this.length = 0
+		if(this.index >= this.lastIndex):
+			this.index = this.lastIndex = 0
 
 		return temp
 
@@ -207,7 +213,7 @@ class OrderedExecution:
 			this._execCounter = None
 			return
 
-		if(this.length - this.index == 0):
+		if(this.lastIndex - this.index == 0):
 			if(this._execCounter != None):
 				this._execCounter.clear()
 			return
@@ -317,7 +323,7 @@ class OrderedExecution:
 		return True
 
 	async def next(this, force=False):
-		if(this.stop or this._rootExecOrder['stop']):
+		if(this.stop or this._rootExecOrder['stop'] or this._nextLocked):
 			return
 		if(this.stepMode): this.pause = True
 		if(this.pause and not force): return
@@ -339,9 +345,11 @@ class OrderedExecution:
 			_proxyInput = nextIface._proxyInput
 			_proxyInput._bpUpdating = True
 
+		if(this._lockNext): this._nextLocked = True
+
 		try:
 			if(next.partialUpdate):
-				portList = nextIface.input._portList
+				portList = nextIface.input
 				for inp in portList:
 					if(inp.feature == PortFeature.ArrayOf):
 						if(inp._hasUpdate):
@@ -367,10 +375,22 @@ class OrderedExecution:
 			next._bpUpdating = False
 			if(_proxyInput != None): _proxyInput._bpUpdating = False
 
-			if(not next.partialUpdate and not skipUpdate): await next._bpUpdate()
+			if(not skipUpdate):
+				if(not next.partialUpdate): await next._bpUpdate()
+				elif(next.bpFunction != None): next.iface.bpInstance.executionOrder.start()
 		except:
 			if(_proxyInput != None): _proxyInput._bpUpdating = False
 			this.clear()
 			traceback.print_exc()
 		finally:
+			this._nextLocked = False
 			if(this.stepMode): this._emitNextExecution(next)
+
+	async def start(this):
+		if(this.stop or this._rootExecOrder['stop'] or this._nextLocked or this.pause):
+			return
+
+		this._lockNext = True
+		for i in range(this.index, this.lastIndex):
+			await this.next()
+		this._lockNext = False

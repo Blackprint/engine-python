@@ -10,7 +10,7 @@ from .Internal import EvError, EvIface, Internal
 from .Interface import Temp, Interface
 from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
-from .Constructor.OrderedExecution import OrderedExecution
+from .Constructor.ExecutionOrder import ExecutionOrder
 from .Constructor.Cable import Cable
 from .Constructor.InstanceEvent import InstanceEvents
 from typing import Dict, List
@@ -44,7 +44,7 @@ class Engine(CustomEvent):
 		this._destroyed_ = False
 		this.parentInterface: FnMain = None
 
-		this.executionOrder = OrderedExecution(this)
+		this.executionOrder = ExecutionOrder(this)
 		this.events = InstanceEvents(this)
 
 		this._envDeleted = lambda data: this._envDeletedHandler(data)
@@ -316,7 +316,7 @@ class Engine(CustomEvent):
 
 		this._importing = False
 		this.emit("json.imported", {'appendMode': options['appendMode'], 'startIndex': appendLength, 'nodes': inserted, 'data': json})
-		Utils.runAsync(this.executionOrder.next())
+		Utils.runAsync(this.executionOrder.start())
 
 		return inserted
 

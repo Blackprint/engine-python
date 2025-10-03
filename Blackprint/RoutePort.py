@@ -69,7 +69,7 @@ class RoutePort(CustomEvent):
 		executionOrder = node.instance.executionOrder
 		if(executionOrder.stop or executionOrder._rootExecOrder['stop']): return
 
-		# Add to execution list if the OrderedExecution is in Step Mode
+		# Add to execution list if the ExecutionOrder is in Step Mode
 		if(executionOrder.stepMode and _cable and not _force):
 			executionOrder._addStepPending(_cable, 1)
 			return

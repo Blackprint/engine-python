@@ -545,6 +545,7 @@ class BPFunctionNode(Node): # Main function node: BPI/F/{FunctionName}
 	type = 'function'
 	def __init__(this, instance):
 		Node.__init__(this, instance)
+		this.partialUpdate = True
 		iface = this.setInterface("BPIC/BP/Fn/Main")
 		iface.type = 'function'
 		iface._enum = Enums.BPFnMain
@@ -617,6 +618,7 @@ class NodeOutput(Node):
 	input = {}
 	def __init__(this, instance):
 		Node.__init__(this, instance)
+		this.partialUpdate = True # Trigger this.update(cable) function everytime this node connected to any port that have update
 
 		iface = this.setInterface('BPIC/BP/Fn/Output')
 		iface._enum = Enums.BPFnOutput
@@ -792,7 +794,17 @@ class BPFnInOut(Interface):
 
 		inputPort._name = refName # When renaming port, this also need to be changed
 		this.emit(f"_add.{name}", inputPort)
+
+		# Code below is used when we dynamically modify function output node inside the function node
+		# where in a single function we can have multiple output node "BP/Fn/Output"
+		list_ = self.parentInterface._proxyOutput
+		for item in list_:
+			port = item.createPort('input', name, inputPortType)
+			port._name = inputPort._name
+			self.emit("_add." + name, port)
+
 		return inputPort
+
 
 	def renamePort(this, fromName, toName):
 		bpFunction = this.parentInterface.node.bpFunction

@@ -181,7 +181,7 @@ class Port(CustomEvent):
 
 		if(thisNode.routes.out != None
 		   and thisNode.iface._enum == Enums.BPFnMain
-		   and thisNode.iface.bpInstance.executionOrder.length != 0):
+		   and thisNode.iface.bpInstance.executionOrder.isPending()):
 			skipSync = True
 
 		for cable in cables:
