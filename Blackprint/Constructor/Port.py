@@ -269,6 +269,9 @@ class Port(CustomEvent):
 		# Skip if the assigned type is also Slot type
 		if(type_ == Types.Slot): return
 
+		if(type_ == Types.Trigger and this.source == 'input'):
+			raise Exception("Assigning Trigger type must use PortFeatures, and not only Types.Trigger")
+
 		# Check current output value type
 		if(this.value != None):
 			gettype = type(this.value)

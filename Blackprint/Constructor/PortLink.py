@@ -212,6 +212,9 @@ class PortLink(MutableMapping):
 			elif(val['feature'] == Port.Default):
 				val = val['type']
 
+		if(val == Types.Trigger and this._which == 'input'):
+			raise Exception("Port with Trigger type must use PortFeatures, and not only Types.Trigger")
+
 		iPort = this._ifacePort
 
 		if(portName in iPort):

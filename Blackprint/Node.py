@@ -20,6 +20,9 @@ class Node(CustomEvent):
 	input: PortLink = None
 	disablePorts = False
 	partialUpdate = False
+
+	# If enabled, syncIn will have 3 parameter, and syncOut will be send to related node in other function instances
+	allowSyncToAllFunction = False
 	iface: Interface = None
 	routes: RoutePort = None
 	ref: References = None
@@ -177,11 +180,13 @@ class Node(CustomEvent):
 			if(iface == parentInterface): continue # Skip self
 			target = iface.bpInstance.ifaceList[nodeIndex]
 
-			if(target == None): raise Exception(f"Target node was not found on other function instance, maybe the node was not correctly synced? ({namespace.replace('BPI/F/', '')});")
+			if(target == None):
+				# console.log(12, iface.bpInstance.ifaceList, target, nodeIndex, this.iface)
+				raise Exception(f"Target node was not found on other function instance, maybe the node was not correctly synced/saved? ({namespace.replace('BPI/F/', '')});")
 			target.node.syncIn(id, data, False)
 
 	def syncOut(this, id, data, force=False):
-		this._syncToAllFunction(id, data)
+		if(this.allowSyncToAllFunction): this._syncToAllFunction(id, data)
 
 		instance = this.instance
 		if(instance.rootInstance != None):
