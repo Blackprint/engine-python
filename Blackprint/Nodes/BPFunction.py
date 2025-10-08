@@ -275,7 +275,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 			raise Exception(f"Variable id already exist: {id}")
 
 		temp = BPVariable(id, options)
-		temp.funcInstance = this
+		temp.bpFunction = this
 		temp._scope = options['scope']
 		this.variables[id] = temp
 
