@@ -1,7 +1,7 @@
 import re
 from typing import Dict
 
-from .Internal import EvEnv
+from .Internal import EvEnv, EvEnvRenamed
 from .Event import Event
 
 class Environment:
@@ -54,7 +54,7 @@ class Environment:
 		Environment.map[keyB] = Environment.map[keyA]
 		del Environment.map[keyA]
 
-		Event.emit('environment.renamed', {'old': keyA, 'now': keyB})
+		Event.emit('environment.renamed', EvEnvRenamed(keyA, keyB))
 
 
 	# options = {allowGet: {}, allowSet: {}}

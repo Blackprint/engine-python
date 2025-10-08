@@ -6,7 +6,7 @@ from .Nodes.BPVariable import VarScope, BPVariable
 from .Types import Types
 from .Environment import Environment
 from .Utils import Utils
-from .Internal import EvError, EvIface, Internal
+from .Internal import EvError, EvIface, Internal, EvVariableNew, EvVariableRenamed, EvVariableDeleted, EvFunctionNew, EvFunctionRenamed, EvFunctionDeleted, EvNodeIdChanged, EvNodeCreating, EvNodeCreated, EvJsonImporting, EvJsonImported
 from .Interface import Temp, Interface
 from .Port.PortFeature import Port
 from .Constructor.CustomEvent import CustomEvent
@@ -60,17 +60,15 @@ class Engine(CustomEvent):
 		i = Utils.findFromList(list, iface)
 
 		if(i != None):
+			iface._bpDestroy = True
+			eventData = EvIface(iface)
+			this._emit('node.delete', eventData)
 			list.pop(i)
 		else:
 			if(this.throwOnError):
 				raise Exception("Node to be deleted was not found")
 
 			return this._emit('error', EvError('node_delete_not_found', EvIface(iface)))
-
-		# iface._bpDestroy = True
-
-		eventData = EvIface(iface)
-		this._emit('node.delete', eventData)
 
 		iface.node.destroy()
 		iface.destroy()
@@ -151,7 +149,7 @@ class Engine(CustomEvent):
 			this.events.list = {}
 		elif(not options['appendMode']): this.clearNodes()
 
-		this.emit("json.importing", { 'appendMode': options['appendMode'], 'data': json})
+		this.emit("json.importing", EvJsonImporting(options['appendMode'], json))
 
 		if('environments' in json and not(options['noEnv'])):
 			Environment.imports(json['environments'])
@@ -315,7 +313,7 @@ class Engine(CustomEvent):
 			val.init()
 
 		this._importing = False
-		this.emit("json.imported", {'appendMode': options['appendMode'], 'startIndex': appendLength, 'nodes': inserted, 'data': json})
+		this.emit("json.imported", EvJsonImported(options['appendMode'], appendLength, inserted, json))
 		Utils.runAsync(this.executionOrder.start())
 
 		return inserted
@@ -328,13 +326,10 @@ class Engine(CustomEvent):
 		this._settings[which] = val
 
 	def linkVariables(this, vars):
+		bpFunction = this.parentInterface.node.bpFunction if this.parentInterface != None else None
 		for temp in vars:
 			Utils.setDeepProperty(this.variables, temp.id.split('/'), temp)
-			this._emit('variable.new', {
-				'reference': temp,
-				'scope': temp._scope,
-				'id': temp.id,
-			})
+			this._emit('variable.new', EvVariableNew(temp._scope, temp.id, bpFunction, temp))
 
 	def _getTargetPortType(this, instance, whichPort, targetNodes):
 		target = targetNodes[0] # ToDo: check all target in case if it's supporting Union type
@@ -375,12 +370,9 @@ class Engine(CustomEvent):
 		temp = BPVariable(id, options)
 		Utils.setDeepProperty(this.variables, ids, temp)
 
+		bpFunction = this.parentInterface.node.bpFunction if this.parentInterface != None else None
 		temp._scope = VarScope.Public
-		this._emit('variable.new', {
-			'reference': temp,
-			'scope': temp._scope,
-			'id': temp.id,
-		})
+		this._emit('variable.new', EvVariableNew(temp._scope, temp.id, bpFunction, temp))
 
 		return temp
 
@@ -422,12 +414,11 @@ class Engine(CustomEvent):
 		Utils.deleteDeepProperty(varsObject, ids, True)
 		Utils.setDeepProperty(varsObject, ids2, oldObj)
 
+		bpFunction = this.parentInterface.node.bpFunction if this.parentInterface != None else None
 		if(scopeId == VarScope.Private):
-			instance._emit('variable.renamed', {
-				'old': from_, 'now': to, 'bpFunction': this.parentInterface.node.bpFunction, 'scope': scopeId
-			})
+			instance._emit('variable.renamed', EvVariableRenamed(scopeId, from_, to, bpFunction, None))
 		else:
-			instance._emit('variable.renamed', {'old': from_, 'now': to, 'reference': oldObj, 'scope': scopeId})
+			instance._emit('variable.renamed', EvVariableRenamed(scopeId, from_, to, bpFunction, oldObj))
 
 	def deleteVariable(this, namespace, scopeId):
 		varsObject, instance = None, this
@@ -447,7 +438,7 @@ class Engine(CustomEvent):
 		bpFunction = this.parentInterface.node.bpFunction if this.parentInterface != None else None
 
 		Utils.deleteDeepProperty(varsObject, path, True)
-		this._emit('variable.deleted', {'scope': scopeId, 'id': oldObj.id, 'reference': oldObj, 'bpFunction': bpFunction})
+		this._emit('variable.deleted', EvVariableDeleted(scopeId, oldObj.id, bpFunction))
 
 	def createFunction(this, id, options):
 		if(this._locked_): raise Exception("This instance was locked")
@@ -476,7 +467,7 @@ class Engine(CustomEvent):
 			for val in privateVars:
 				temp.createVariable(val, {"scope": VarScope.Private})
 
-		this._emit('function.new', {'reference': temp})
+		this._emit('function.new', EvFunctionNew(temp))
 		return temp
 
 	def renameFunction(this, from_, to):
@@ -507,7 +498,7 @@ class Engine(CustomEvent):
 		Utils.deleteDeepProperty(this.functions, ids, True)
 		Utils.setDeepProperty(this.functions, ids2, oldObj)
 
-		this._emit('function.renamed', {'old': from_, 'now': to, 'reference': oldObj})
+		this._emit('function.renamed', EvFunctionRenamed(from_, to, oldObj))
 
 	def deleteFunction(this, id):
 		path = id.split('/')
@@ -516,7 +507,7 @@ class Engine(CustomEvent):
 		oldObj.destroy()
 
 		Utils.deleteDeepProperty(this.functions, path, True)
-		this._emit('function.deleted', {'id': oldObj.id, 'reference': oldObj})
+		this._emit('function.deleted', EvFunctionDeleted(oldObj.id, oldObj))
 
 	def _log(this, data):
 		data.instance = this
@@ -577,7 +568,7 @@ class Engine(CustomEvent):
 			if(sketch.parentInterface != None):
 				sketch.parentInterface.ref[newId] = iface.ref
 
-		iface.node.instance.emit('node.id.changed', {'iface': iface, 'old': oldId, 'now': newId})
+		iface.node.instance.emit('node.id.changed', EvNodeIdChanged(iface, oldId, newId))
 
 	def _isInsideFunction(this, fnNamespace):
 		if(this.rootInstance == None): return False
@@ -623,7 +614,7 @@ class Engine(CustomEvent):
 		if(func == None):
 			raise Exception(f"Node nodes for namespace '{namespace}' was not found, maybe .registerNode() haven't being called?")
 
-		this.emit('node.creating', {'namespace': namespace, 'options': options})
+		this.emit('node.creating', EvNodeCreating(namespace, options))
 
 		# @var Node
 		node = funcNode if funcNode != None else func(this)
@@ -695,7 +686,7 @@ class Engine(CustomEvent):
 		if(hasattr(func, 'initUpdate') and func.initUpdate != None):
 			this._tryInitUpdateNode(node, func.initUpdate, True)
 
-		this.emit('node.created', {'iface': iface})
+		this.emit('node.created', EvNodeCreated(iface))
 		return iface
 
 	def destroy(this):

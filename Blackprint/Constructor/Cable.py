@@ -45,33 +45,35 @@ class Cable:
 		this.connected()
 
 	def _connected(this):
-		owner = this.owner
-		target = this.target
+		inp = this.input
+		out = this.output
 		this.connected = True
 
 		# Skip event emit or node update for route cable connection
 		if(this.isRoute): return
 
-		temp = EvPortValue(owner, target, this)
-		owner.emit('cable.connect', temp)
-		owner.iface.emit('cable.connect', temp)
+		tempEv = EvPortValue(inp, out, this)
+		inp.emit('cable.connect', tempEv)
+		inp.iface.emit('cable.connect', tempEv)
 
-		temp2 = EvPortValue(target, owner, this)
-		target.emit('cable.connect', temp2)
-		target.iface.emit('cable.connect', temp2)
+		tempEv2 = EvPortValue(out, inp, this)
+		out.emit('cable.connect', tempEv2)
+		out.iface.emit('cable.connect', tempEv2)
 
-		if(this.output.value == None): return
+		inp.iface.node.instance.emit('cable.connect', tempEv)
+		inp.emit('connect', tempEv)
+		out.emit('connect', tempEv2)
 
-		input = this.input
-		tempEv = EvPortValue(input, this.output, this)
-		input.emit('value', tempEv)
-		input.iface.emit('port.value', tempEv)
+		if(out.value != None):
+			input = this.input
+			input.emit('value', tempEv)
+			input.iface.emit('port.value', tempEv)
 
-		node = input.iface.node
-		if(node.instance._importing):
-			node.instance.executionOrder.add(node, this)
-		elif(len(node.routes.inp) == 0):
-			Utils.runAsync(node._bpUpdate(this))
+			node = input.iface.node
+			if(node.instance._importing):
+				node.instance.executionOrder.add(node, this)
+			elif(len(node.routes.inp) == 0):
+				Utils.runAsync(node._bpUpdate(this))
 
 	# For debugging
 	def _print(this):

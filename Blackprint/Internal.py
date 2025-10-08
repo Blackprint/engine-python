@@ -67,11 +67,11 @@ def registerEvent(namespace, options):
 	if(schema == None):
 		raise Exception(f"Registering an event must have a schema. If the event doesn't have a schema or dynamically created from an instance you may not need to do this registration.")
 
-	for obj in schema:
+	for key, obj in schema.items():
 		# Must be a data type
 		# or type from Blackprint.Port.{Feature}
 		if(not isinstance(obj, type) and obj.feature == None) and not Types.isType(obj):
-			raise Exception(f"Unsupported schema type for field 'key' in '{namespace}'")
+			raise Exception(f"Unsupported schema type for field '{key}' in '{namespace}'")
 
 	Internal.events[namespace] = InstanceEvent(options)
 
@@ -99,20 +99,14 @@ class EvPort:
 	def __init__(this, port):
 		this.port = port
 
-class EvCable:
-	def __init__(this, cable):
-		this.cable = cable
-
 class EvEnv:
 	def __init__(this, key, value=None):
 		this.key = key
 		this.value = value
 
-class EvVariableNew:
-	def __init__(this, instance, scope, id):
-		this.instance = instance
-		this.scope = scope
-		this.id = id
+class EvCable:
+	def __init__(this, cable):
+		this.cable = cable
 
 class EvPortValue:
 	def __init__(this, port, target, cable):
@@ -130,3 +124,105 @@ class EvCableError:
 		this.port = port
 		this.target = target
 		this.message = msg
+
+class EvJsonImporting:
+	def __init__(this, append_mode, data):
+		this.appendMode = append_mode
+		this.data = data
+
+class EvJsonImported:
+	def __init__(this, append_mode, start_index, nodes, data):
+		this.appendMode = append_mode
+		this.startIndex = start_index
+		this.nodes = nodes
+		this.data = data
+
+class EvVariableNew:
+	def __init__(this, scope, id, bpFunction, reference):
+		this.scope = scope
+		this.id = id
+		this.bpFunction = bpFunction
+		this.reference = reference # Only available for Public/Shared scope
+
+class EvVariableRenamed:
+	def __init__(this, scope, old_name, new_name, bp_function, reference):
+		this.scope = scope
+		this.old = old_name
+		this.now = new_name
+		this.bpFunction = bp_function
+		this.reference = reference # Only available for Public/Shared scope
+
+class EvVariableDeleted:
+	def __init__(this, scope, id, bp_function):
+		this.scope = scope
+		this.id = id
+		this.bpFunction = bp_function
+
+class EvFunctionNew:
+	def __init__(this, reference):
+		this.reference = reference
+
+class EvFunctionRenamed:
+	def __init__(this, old_name, new_name, reference):
+		this.old = old_name
+		this.now = new_name
+		this.reference = reference
+
+class EvFunctionDeleted:
+	def __init__(this, id, reference):
+		this.id = id
+		this.reference = reference
+
+class EvExecutionTerminated:
+	def __init__(this, reason, iface):
+		this.reason = reason
+		this.iface = iface
+
+class EvFieldCreated:
+	def __init__(this, name, namespace):
+		this.name = name
+		this.namespace = namespace
+
+class EvFieldRenamed:
+	def __init__(this, old_name, new_name, namespace):
+		this.old = old_name
+		this.now = new_name
+		this.namespace = namespace
+
+class EvFieldDeleted:
+	def __init__(this, name, namespace):
+		this.name = name
+		this.namespace = namespace
+
+class EvEnvRenamed:
+	def __init__(this, old_key, new_key):
+		this.old = old_key
+		this.now = new_key
+
+class EvFunctionPortRenamed:
+	def __init__(this, old_name, new_name, reference, which):
+		this.old = old_name
+		this.now = new_name
+		this.reference = reference
+		this.which = which
+
+class EvFunctionPortDeleted:
+	def __init__(this, which, name, reference):
+		this.which = which
+		this.name = name
+		this.reference = reference
+
+class EvNodeIdChanged:
+	def __init__(this, iface, old_id, new_id):
+		this.iface = iface
+		this.old = old_id
+		this.now = new_id
+
+class EvNodeCreating:
+	def __init__(this, namespace, options):
+		this.namespace = namespace
+		this.options = options
+
+class EvNodeCreated:
+	def __init__(this, iface):
+		this.iface = iface

@@ -27,7 +27,7 @@ class InstanceEvents(CustomEvent):
 
 		obj = this.list[namespace] = InstanceEvent({ 'schema': schema, 'namespace': namespace, '_root': this })
 
-		this.instance._emit('event.created', {'reference': obj})
+		this.instance._emit('event.created', EvEventCreated(obj))
 
 	def renameEvent(this, from_, to):
 		if(to in this.list): raise Exception(f"Event with name '{to}' already exist")
@@ -49,7 +49,7 @@ class InstanceEvents(CustomEvent):
 		this.list[to] = this.list[from_]
 		del this.list[from_]
 
-		this.instance._emit('event.renamed', {'old': from_, 'now': to, 'reference': oldEvInstance})
+		this.instance._emit('event.renamed', EvEventRenamed(from_, to, oldEvInstance))
 
 	def deleteEvent(this, namespace):
 		exist = this.list.get(namespace, None)
@@ -60,7 +60,7 @@ class InstanceEvents(CustomEvent):
 			iface.node.instance.deleteNode(iface)
 
 		del this.list[namespace]
-		this.instance._emit('event.deleted', {'reference': exist})
+		this.instance._emit('event.deleted', EvEventDeleted(exist))
 
 	def _renameFields(this, namespace, name, to):
 		schema = this.list.get(namespace, None)
@@ -118,3 +118,18 @@ class InstanceEvent:
 		this._root = options.get('_root', None)
 		this.namespace = options.get('namespace', None)
 		this.used = []
+
+# Don't put below to Internal.php script to avoid circular import
+class EvEventCreated:
+	def __init__(this, reference):
+		this.reference = reference
+
+class EvEventRenamed:
+	def __init__(this, old_name, new_name, reference):
+		this.old = old_name
+		this.now = new_name
+		this.reference = reference
+
+class EvEventDeleted:
+	def __init__(this, reference):
+		this.reference = reference

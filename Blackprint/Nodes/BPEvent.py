@@ -7,7 +7,7 @@ from ..Interface import Interface
 from ..Node import Node
 from ..Environment import Environment
 from .Enums import Enums
-from ..Internal import registerNode, registerInterface
+from ..Internal import registerNode, registerInterface, EvFieldCreated, EvFieldRenamed, EvFieldDeleted
 
 @registerNode('BP/Event/Listen')
 class BPEventListen(Node):
@@ -141,20 +141,14 @@ class BPEventListenEmit(Interface):
 
 		schema[name] = type
 		this._insEventsRef.refreshFields(this.data['namespace'])
-		this.node.instance._emit('event.field.created', {
-			'name': name,
-			'namespace': this.data['namespace'],
-		})
+		this.node.instance._emit('event.field.created', EvFieldCreated(name, this.data['namespace']))
 
 	def renameField(this, name, to):
 		schema = this._eventRef.schema
 		if((not name in schema) or (to in schema)): return
 
 		this._insEventsRef._renameFields(this.data['namespace'], name, to)
-		this.node.instance._emit('event.field.renamed', {
-			'old': name, 'now': to,
-			'namespace': this.data['namespace'],
-		})
+		this.node.instance._emit('event.field.renamed', EvFieldRenamed(name, to, this.data['namespace']))
 
 	def deleteField(this, name):
 		schema = this._eventRef.schema
@@ -162,10 +156,7 @@ class BPEventListenEmit(Interface):
 
 		del schema[name]
 		this._insEventsRef.refreshFields(this.data['namespace'])
-		this.node.instance._emit('event.field.deleted', {
-			'name': name,
-			'namespace': this.data['namespace'],
-		})
+		this.node.instance._emit('event.field.deleted', EvFieldDeleted(name, this.data['namespace']))
 
 	def _addToList(this):
 		used = this._insEventsRef.list[this.data['namespace']].used
@@ -193,19 +184,3 @@ class IEventListen(BPEventListenEmit):
 @registerInterface('BPIC/BP/Event/Emit')
 class IEnvEmit(BPEventListenEmit):
 	pass
-
-class EvEFCreate:
-	def __init__(this, name, namespace):
-		this.name = name
-		this.namespace = namespace
-
-class EvEFRename:
-	def __init__(this, name, to, namespace):
-		this.name = name
-		this.to = to
-		this.namespace = namespace
-
-class EvEFDelete:
-	def __init__(this, name, namespace):
-		this.name = name
-		this.namespace = namespace

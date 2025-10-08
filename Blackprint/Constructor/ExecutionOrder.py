@@ -1,6 +1,7 @@
 import asyncio
 from ..Port.PortFeature import Port as PortFeature
 from ..Nodes.Enums import Enums
+from ..Internal import EvExecutionTerminated
 import traceback
 
 class EvExecutionPaused:
@@ -238,7 +239,7 @@ class ExecutionOrder:
 			this._execCounter.clear()
 
 			message = f"Single node execution loop exceeded the limit ({limit}): {node.iface.namespace}"
-			this.instance._emit('execution.terminated', {'reason': message, 'iface': node.iface})
+			this.instance._emit('execution.terminated', EvExecutionTerminated(message, node.iface))
 			return True
 
 	async def _checkStepPending(this):
@@ -350,7 +351,7 @@ class ExecutionOrder:
 		try:
 			if(next.partialUpdate):
 				portList = nextIface.input
-				for inp in portList:
+				for inp in portList.values():
 					if(inp.feature == PortFeature.ArrayOf):
 						if(inp._hasUpdate):
 							inp._hasUpdate = False
@@ -377,7 +378,7 @@ class ExecutionOrder:
 
 			if(not skipUpdate):
 				if(not next.partialUpdate): await next._bpUpdate()
-				elif(next.bpFunction != None): next.iface.bpInstance.executionOrder.start()
+				elif(next.bpFunction != None): await next.iface.bpInstance.executionOrder.start()
 		except:
 			if(_proxyInput != None): _proxyInput._bpUpdating = False
 			this.clear()

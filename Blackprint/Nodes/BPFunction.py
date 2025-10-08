@@ -12,7 +12,7 @@ from ..Constructor.Port import Port as PortClass
 from .BPVariable import VarScope, BPVariable
 from ..Types import Types
 from .Enums import Enums
-from ..Internal import EvVariableNew, registerNode, registerInterface
+from ..Internal import EvVariableNew, EvVariableRenamed, EvVariableDeleted, EvFunctionPortRenamed, EvFunctionPortDeleted, EvPortValue, registerNode, registerInterface
 import re
 
 # Don't delete even unused, this is needed for importing the internal node
@@ -49,6 +49,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 			this.structure = options['structure']
 		else:
 			this.structure = {
+				'_bpStale': False,
 				'instance': {
 					'BP/Fn/Input': [{'i': 0}],
 					'BP/Fn/Output': [{'i': 1}],
@@ -201,8 +202,8 @@ class BPFunction(CustomEvent): # <= bpFunction
 					raise Exception("Output iface namespace was different")
 
 				if(eventName == 'cable.connect'):
-					targetInput = inputIface.input[input.name]
-					targetOutput = outputIface.output[output.name]
+					targetInput = inputIface.input.get(input.name)
+					targetOutput = outputIface.output.get(output.name)
 
 					if(targetInput == None):
 						if(inputIface._enum == Enums.BPFnOutput):
@@ -256,7 +257,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 		if options['scope'] == VarScope.Private:
 			if id not in this.privateVars:
 				this.privateVars.append(id)
-				eventData = {'bpFunction': this, 'scope': VarScope.Private, 'id': id}
+				eventData = EvVariableNew(VarScope.Private, id, this, None)
 				this.emit('variable.new', eventData)
 				this.rootInstance.emit('variable.new', eventData)
 
@@ -278,11 +279,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 		temp._scope = options['scope']
 		this.variables[id] = temp
 
-		eventData = {
-			'reference': temp,
-			'scope': temp._scope,
-			'id': temp.id
-		}
+		eventData = EvVariableNew(temp._scope, temp.id, this, temp)
 		this.emit('variable.new', eventData)
 		this.rootInstance.emit('variable.new', eventData)
 		return temp
@@ -312,9 +309,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 			if from_ in this.variables:
 				del this.variables[from_]
 
-			this.rootInstance.emit('variable.renamed', {
-				'old': from_, 'now': to, 'reference': varObj, 'scope': scopeId,
-			})
+			this.rootInstance.emit('variable.renamed', EvVariableRenamed(scopeId, from_, to, this, varObj))
 		else:
 			raise Exception(f"Can't rename variable from scopeId: {scopeId}")
 
@@ -355,14 +350,14 @@ class BPFunction(CustomEvent): # <= bpFunction
 				if scopeId == VarScope.Private:
 					oldObj.destroy()
 				Utils.deleteDeepProperty(varsObject, path, True)
-				eventData = {'scope': oldObj._scope, 'id': oldObj.id, 'bpFunction': this}
+				eventData = EvVariableDeleted(oldObj._scope, oldObj.id, this)
 				instance.emit('variable.deleted', eventData)
 		elif scopeId == VarScope.Shared:
 			oldObj = Utils.getDeepProperty(this.variables, path)
 			used[0].bpInstance.deleteVariable(namespace, scopeId)
 
 			# Delete from all function node instances
-			eventData = {'scope': oldObj._scope, 'id': oldObj.id, 'reference': oldObj}
+			eventData = EvVariableDeleted(oldObj._scope, oldObj.id, this)
 			for iface in used[1:]:  # Skip the first element and iterate directly over the rest
 				iface.bpInstance.emit('variable.deleted', eventData)
 
@@ -399,9 +394,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 				if which == 'output' and proxyVar.input and 'Val' in proxyVar.input:
 					proxyVar.input['Val']._name.name = toName
 
-		this.rootInstance.emit('function.port.renamed', {
-			'old': fromName, 'now': toName, 'reference': this, 'which': which,
-		})
+		this.rootInstance.emit('function.port.renamed', EvFunctionPortRenamed(fromName, toName, this, which))
 
 	def deletePort(this, which, portName):
 		used = this.used
@@ -424,9 +417,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 
 		if hasDeletion:
 			used[0]._save(False, False, True)
-			this.rootInstance.emit('function.port.deleted', {
-				'which': which, 'name': portName, 'reference': this,
-			})
+			this.rootInstance.emit('function.port.deleted', EvFunctionPortDeleted(which, portName, this))
 
 	async def invoke(this, input):
 		iface = this.directInvokeFn
@@ -477,7 +468,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 					continue
 
 				inp._cache = None
-				inp.emit('value', {'port': inp, 'target': iface, 'cable': cable})
+				inp.emit('value', EvPortValue(inp, iface, cable))
 
 		await proxyInput.routes.routeOut()
 
@@ -511,7 +502,7 @@ class BPFunction(CustomEvent): # <= bpFunction
 		if(id not in this.privateVars):
 			this.privateVars.append(id)
 
-			temp = EvVariableNew(this, VarScope.Private, id)
+			temp = EvVariableNew(VarScope.Private, id, this, None)
 			this.emit('variable.new', temp)
 			this.rootInstance.emit('variable.new', temp)
 
@@ -626,7 +617,9 @@ class NodeOutput(Node):
 
 		funcMain = this.instance.parentInterface
 		iface.parentInterface = funcMain
-		funcMain._proxyOutput = this
+		if not hasattr(funcMain, '_proxyOutput'):
+			funcMain._proxyOutput = []
+		funcMain._proxyOutput.append(this)
 
 	def imported(this, data):
 		output = this.iface.parentInterface.node.bpFunction.output
@@ -690,6 +683,10 @@ class FnMain(Interface):
 
 		bpFunction.refreshPrivateVars(newInstance)
 
+		if bpFunction.structure.get('_bpStale'):
+			print(node.iface.namespace + ": Function structure was stale, this maybe get modified or not re-synced with remote sketch on runtime")
+			raise Exception("Unable to create stale function structure")
+
 		swallowCopy = bpFunction.structure.copy()
 		newInstance.importJSON(swallowCopy, {'clean': False})
 
@@ -703,9 +700,21 @@ class FnMain(Interface):
 				InputIface._initPortSwitches(InputIface._portSw_)
 				InputIface._portSw_ = None
 
-		def _save(ev, eventName, force=False):
+		def _save(ev, eventName=False, force=False):
+			eventName = newInstance._currentEventName
+
 			# this.bpInstance._emit('_fn.structure.update', { 'iface': this });
 			if(force or bpFunction._syncing): return
+			if(this._bpDestroy): return # Don't synchronize if this function node is deleted
+
+			# This will be synced by remote sketch as this engine dont have exportJSON
+			bpFunction.structure['_bpStale'] = True
+			# bpFunction.structure = this.bpInstance.exportJSON({
+			# 	toRawObject: true,
+			# 	exportFunctions: false,
+			# 	exportVariables: false,
+			# 	exportEvents: false,
+			# });
 
 			# ev.bpFunction = bpFunction
 			newInstance.rootInstance.emit(eventName, ev)
@@ -751,9 +760,9 @@ class BPFnInOut(Interface):
 		if(this.type == 'bp-fn-input'): # Main (input) . Input (output):
 			inc = 1
 			while(name in this.output):
-				if((name + inc) in this.output): inc += 1
+				if((name + str(inc)) in this.output): inc += 1
 				else:
-					name += inc
+					name += str(inc)
 					break
 
 			nodeA = this.parentInterface.node
@@ -769,9 +778,9 @@ class BPFnInOut(Interface):
 		else: # Output (input) . Main (output)
 			inc = 1
 			while(name in this.input):
-				if((name + inc) in this.input): inc += 1
+				if((name + str(inc)) in this.input): inc += 1
 				else:
-					name += inc
+					name += str(inc)
 					break
 
 			nodeA = this.node
@@ -797,11 +806,11 @@ class BPFnInOut(Interface):
 
 		# Code below is used when we dynamically modify function output node inside the function node
 		# where in a single function we can have multiple output node "BP/Fn/Output"
-		list_ = self.parentInterface._proxyOutput
+		list_ = this.parentInterface._proxyOutput
 		for item in list_:
 			port = item.createPort('input', name, inputPortType)
 			port._name = inputPort._name
-			self.emit("_add." + name, port)
+			this.emit("_add." + name, port)
 
 		return inputPort
 

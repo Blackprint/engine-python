@@ -5,14 +5,11 @@ class CustomEvent:
 	def __init__(this):
 		this._events = {}
 		this._once = {}
-		this._eventsMultiListen = None # Collection of function that listening to multiple event in a single function
+		this._currentEventName = None
 
 	def on(this, eventName, func, once = False):
 		if(' ' in eventName):
 			eventName = eventName.split(' ')
-
-			if(this._eventsMultiListen == None): this._eventsMultiListen = set()
-			this._eventsMultiListen.add(func)
 
 			for val in eventName:
 				this.on(val, func, once)
@@ -54,8 +51,6 @@ class CustomEvent:
 			del this._events[eventName]
 			del this._once[eventName]
 			return
-		elif(this._eventsMultiListen != None):
-			this._eventsMultiListen.discard(func)
 
 		if(eventName in this._events):
 			_events = this._events[eventName]
@@ -73,18 +68,15 @@ class CustomEvent:
 		events = this._events
 		once = this._once
 
+		this._currentEventName = eventName
+
 		if(eventName in events):
 			evs = events[eventName]
-			for val in evs:
-				if(this._eventsMultiListen != None and val in this._eventsMultiListen):
-					val(data, eventName)
-				else: val(data)
+			for val in evs: val(data)
 
 		if(eventName in once):
 			evs = once[eventName]
-			for val in evs:
-				if(this._eventsMultiListen != None and val in this._eventsMultiListen):
-					val(data, eventName)
-				else: val(data)
-
+			for val in evs: val(data)
 			del once[eventName]
+
+		this._currentEventName = None
