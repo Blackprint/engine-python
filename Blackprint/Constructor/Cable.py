@@ -65,12 +65,12 @@ class Cable:
 		out.emit('connect', tempEv2)
 
 		if(out.value != None):
-			input = this.input
-			input.emit('value', tempEv)
-			input.iface.emit('port.value', tempEv)
+			inp.emit('value', tempEv)
+			inp.iface.emit('port.value', tempEv)
 
-			node = input.iface.node
+			node = inp.iface.node
 			if(node.instance._importing):
+				if (node.partialUpdate): inp._hasUpdateCable = this
 				node.instance.executionOrder.add(node, this)
 			elif(len(node.routes.inp) == 0):
 				Utils.runAsync(node._bpUpdate(this))

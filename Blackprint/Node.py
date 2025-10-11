@@ -204,3 +204,4 @@ class Node(CustomEvent):
 	def initPorts(this, data): pass
 	def destroy(this): pass
 	def syncIn(this, id, data, isRemote=False): pass
+	def notifyEditorDataChanged(this): pass # Do nothing, this only required for Blackprint.Sketch
