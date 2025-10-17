@@ -142,22 +142,19 @@ class Utils:
 
 		return ( type, def_, feature )
 
-	def findFromList(list, item):
-		try:
-			return list.index(item)
-		except ValueError:
-			return None
+	def findFromList(list_, item):
+		for i, val in enumerate(list_):
+			if val == item: return i
+		return None
 
-	_asyncTask = set()
-	def runAsync(corountine):
-		if(corountine == None): return
+	def runAsync(coroutine):
+		if coroutine == None: return
+
 		try:
-			task = asyncio.create_task(corountine)
-			Utils._asyncTask.add(task)
-			task.add_done_callback(Utils._asyncTask.discard)
+			asyncio.create_task(coroutine)
 		except RuntimeError:
 			# No event loop running, use asyncio.run() to create one
-			asyncio.run(corountine)
+			asyncio.run(coroutine)
 
 	def patchClass(old_class, new_class):
 		for name in list(vars(old_class).keys()):

@@ -67,16 +67,17 @@ class CustomEvent:
 	def emit(this, eventName, data=None):
 		events = this._events
 		once = this._once
-
 		this._currentEventName = eventName
 
-		if(eventName in events):
-			evs = events[eventName]
-			for val in evs: val(data)
+		event_handlers = events.get(eventName)
+		if event_handlers:
+			for handler in event_handlers:
+				handler(data)
 
-		if(eventName in once):
-			evs = once[eventName]
-			for val in evs: val(data)
+		once_handlers = once.get(eventName)
+		if once_handlers:
+			for handler in once_handlers:
+				handler(data)
 			del once[eventName]
 
 		this._currentEventName = None
