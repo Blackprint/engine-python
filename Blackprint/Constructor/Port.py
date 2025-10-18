@@ -187,10 +187,10 @@ class Port(CustomEvent):
 		for cable in cables:
 			inp = cable.input
 			if(inp == None): continue
-			inp._cache = None
 
 			if(inp._cache != None and instance.executionOrder.stepMode):
 				inp._oldCache = inp._cache
+			inp._cache = None
 
 			inpIface = inp.iface
 			inpNode = inpIface.node

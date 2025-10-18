@@ -59,9 +59,10 @@ class Engine(CustomEvent):
 		list = this.ifaceList
 		i = Utils.findFromList(list, iface)
 
+		iface._bpDestroy = True
+		eventData = EvIface(iface)
+
 		if(i != None):
-			iface._bpDestroy = True
-			eventData = EvIface(iface)
 			this._emit('node.delete', eventData)
 			list.pop(i)
 		else:
