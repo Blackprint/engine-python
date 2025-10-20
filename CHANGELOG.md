@@ -1,3 +1,13 @@
+# 0.10.0
+
+For detailed information about additional features, bug fixes, breaking changes. Please see [engine-js](https://github.com/Blackprint/engine-js/blob/master/CHANGELOG.md)'s changelog.
+
+### Breaking Changes
+- Change `json.imported` event parameter field name
+- Remove "Function Output Variable" node `BP/FnVar/Output`
+  - If you use this node before, it will be replaced with placeholder node and will be removed anytime in the future. Please use `BP/Fn/Output` instead.
+- `Blackprint.OrderedExecution` renamed to `Blackprint.ExecutionOrder`
+
 # 0.9.0
 
 ### Breaking Changes
